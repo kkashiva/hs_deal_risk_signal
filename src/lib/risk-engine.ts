@@ -77,11 +77,28 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
     }
 
     // Format recent engagements for the prompt
-    const recentEngagements = engagements.slice(0, 10).map(e => ({
-        type: e.type,
-        date: new Date(e.timestamp).toISOString().split('T')[0],
-        summary: (e.subject || e.body || '').substring(0, 200),
-    }));
+    // Emails get their own dedicated pool (up to 5, 500-char truncation)
+    // so they can't be crowded out by notes/calls
+    const recentEmails = engagements
+        .filter(e => e.type === 'EMAIL')
+        .slice(0, 5)
+        .map(e => ({
+            type: e.type,
+            date: new Date(e.timestamp).toISOString().split('T')[0],
+            summary: (e.subject || e.body || '').substring(0, 500),
+        }));
+
+    const recentOtherEngagements = engagements
+        .filter(e => e.type !== 'EMAIL')
+        .slice(0, 5)
+        .map(e => ({
+            type: e.type,
+            date: new Date(e.timestamp).toISOString().split('T')[0],
+            summary: (e.subject || e.body || '').substring(0, 200),
+        }));
+
+    const recentEngagements = [...recentEmails, ...recentOtherEngagements]
+        .sort((a, b) => b.date.localeCompare(a.date));
 
     return {
         deal_metadata: {
