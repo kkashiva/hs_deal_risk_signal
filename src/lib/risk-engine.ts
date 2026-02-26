@@ -1,0 +1,267 @@
+// ============================================================
+// Risk Engine — Orchestration Pipeline
+// ============================================================
+
+import {
+    HubSpotDeal,
+    RiskInput,
+    RiskAnalysisResult,
+    ScanResult,
+} from './types';
+import { getConfig } from './config';
+import {
+    fetchOpenDeals,
+    fetchDeal,
+    fetchDealEngagements,
+    computeActivityMetrics,
+    updateDealRiskFields,
+    createTaskForHighRisk,
+} from './hubspot';
+import { getTranscriptsForDeal, isGongConfigured } from './gong';
+import { analyzeDealRisk } from './ai-analyzer';
+import { sendHighRiskAlert, sendScanSummary, isSlackConfigured } from './slack';
+import { insertRiskEvaluation, insertScanRun } from '@/db/queries';
+
+const BATCH_SIZE = 5;
+
+// --- Build Risk Input for a Deal ---
+
+async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
+    const props = deal.properties;
+    const now = Date.now();
+
+    // Fetch engagements
+    const engagements = await fetchDealEngagements(deal.id);
+    const activityMetrics = computeActivityMetrics(engagements);
+
+    // Compute stage duration
+    const createDate = new Date(props.createdate).getTime();
+    const daysSinceCreation = Math.round((now - createDate) / (1000 * 60 * 60 * 24));
+
+    // Estimate days in current stage (using last modified as proxy)
+    const lastModified = new Date(props.hs_lastmodifieddate).getTime();
+    const daysInStage = Math.round((now - lastModified) / (1000 * 60 * 60 * 24));
+
+    // Calculate close date drift
+    let closeDateDrift: number | null = null;
+    if (props.closedate) {
+        const closeDate = new Date(props.closedate).getTime();
+        if (closeDate < now) {
+            closeDateDrift = Math.round((now - closeDate) / (1000 * 60 * 60 * 24));
+        }
+    }
+
+    // Fetch Gong transcripts
+    let transcriptSummary: string | null = null;
+    if (isGongConfigured()) {
+        try {
+            transcriptSummary = await getTranscriptsForDeal(props.dealname);
+        } catch (error) {
+            console.error(`Gong error for deal ${deal.id}:`, error);
+        }
+    }
+
+    // Format recent engagements for the prompt
+    const recentEngagements = engagements.slice(0, 10).map(e => ({
+        type: e.type,
+        date: new Date(e.timestamp).toISOString().split('T')[0],
+        summary: (e.subject || e.body || '').substring(0, 200),
+    }));
+
+    return {
+        deal_metadata: {
+            deal_id: deal.id,
+            deal_name: props.dealname,
+            amount: props.amount ? parseFloat(props.amount) : null,
+            mrr: props.mrr ? parseFloat(props.mrr) : null,
+            stage: props.dealstage,
+            pipeline: props.pipeline,
+            days_in_stage: daysInStage,
+            days_since_creation: daysSinceCreation,
+            close_date: props.closedate,
+            close_date_drift_days: closeDateDrift,
+            forecast_category: props.hs_manual_forecast_category || props.hs_forecast_category,
+            owner_id: props.hubspot_owner_id,
+            num_contacts: parseInt(props.num_associated_contacts || '0'),
+        },
+        engagement_metrics: activityMetrics,
+        recent_engagements: recentEngagements,
+        transcript_summary: transcriptSummary,
+    };
+}
+
+// --- Process a Single Deal ---
+
+async function processDeal(
+    deal: HubSpotDeal
+): Promise<{ success: boolean; riskLevel?: string }> {
+    try {
+        console.log(`Processing deal: ${deal.properties.dealname} (${deal.id})`);
+
+        // Build risk input
+        const riskInput = await buildRiskInput(deal);
+
+        // Analyze with AI
+        const { result, provider, promptVersion } = await analyzeDealRisk(riskInput);
+
+        // Write back to HubSpot
+        await updateDealRiskFields(deal.id, result);
+
+        // Store in database
+        try {
+            await insertRiskEvaluation({
+                deal_id: deal.id,
+                deal_name: deal.properties.dealname,
+                deal_amount: deal.properties.amount ? parseFloat(deal.properties.amount) : null,
+                pipeline: deal.properties.pipeline || null,
+                risk_level: result.risk_level,
+                risk_reason: result.primary_risk_reason,
+                explanation: result.explanation,
+                recommended_action: result.recommended_action,
+                confidence: result.confidence_score,
+                escalation_target: result.escalation_target,
+                model_used: provider,
+                prompt_version: promptVersion,
+                was_lost_later: false,
+            });
+        } catch (dbError) {
+            console.error(`DB error for deal ${deal.id}:`, dbError);
+            // Non-fatal: the HubSpot update already succeeded
+        }
+
+        // Send Slack alert for HIGH risk deals
+        if (
+            result.risk_level === 'HIGH' &&
+            result.confidence_score >= 70 &&
+            isSlackConfigured()
+        ) {
+            const config = getConfig();
+            const amount = deal.properties.amount ? parseFloat(deal.properties.amount) : 0;
+
+            if (amount >= config.highRiskDealValueThreshold || result.escalation_target === 'exec') {
+                await sendHighRiskAlert(
+                    {
+                        id: deal.id,
+                        name: deal.properties.dealname,
+                        amount: amount || null,
+                        stage: deal.properties.dealstage,
+                        owner: deal.properties.hubspot_owner_id,
+                    },
+                    result
+                );
+
+                // Create HubSpot task for HIGH risk deals
+                await createTaskForHighRisk(
+                    deal.id,
+                    deal.properties.hubspot_owner_id,
+                    `🚨 AI Risk Alert: ${result.explanation}\n\nRecommended: ${result.recommended_action}`
+                );
+            }
+        }
+
+        console.log(
+            `✅ Deal "${deal.properties.dealname}": ${result.risk_level} risk ` +
+            `(${result.primary_risk_reason}, ${result.confidence_score}% confidence)`
+        );
+
+        return { success: true, riskLevel: result.risk_level };
+    } catch (error) {
+        console.error(`❌ Error processing deal ${deal.id}:`, error);
+        return { success: false };
+    }
+}
+
+// --- Run Full Risk Scan ---
+
+export async function runRiskScan(singleDealId?: string): Promise<ScanResult> {
+    const startTime = Date.now();
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`Risk scan started at ${new Date().toISOString()}`);
+    console.log(`${'='.repeat(60)}\n`);
+
+    let deals: HubSpotDeal[];
+
+    if (singleDealId) {
+        // Single deal mode (for testing)
+        const deal = await fetchDeal(singleDealId);
+        deals = deal ? [deal] : [];
+        if (!deal) {
+            console.log(`Deal ${singleDealId} not found`);
+        }
+    } else {
+        // Full scan mode
+        deals = await fetchOpenDeals();
+    }
+
+    console.log(`Found ${deals.length} deals to analyze\n`);
+
+    let analyzed = 0;
+    let highRisk = 0;
+    let mediumRisk = 0;
+    let lowRisk = 0;
+    let errors = 0;
+
+    // Process in batches
+    for (let i = 0; i < deals.length; i += BATCH_SIZE) {
+        const batch = deals.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(deal => processDeal(deal)));
+
+        for (const r of results) {
+            if (r.success) {
+                analyzed++;
+                if (r.riskLevel === 'HIGH') highRisk++;
+                if (r.riskLevel === 'MEDIUM') mediumRisk++;
+                if (r.riskLevel === 'LOW') lowRisk++;
+            } else {
+                errors++;
+            }
+        }
+
+        // Small delay between batches to respect rate limits
+        if (i + BATCH_SIZE < deals.length) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+
+    const durationMs = Date.now() - startTime;
+
+    const result: ScanResult = {
+        total: deals.length,
+        analyzed,
+        highRisk,
+        mediumRisk,
+        lowRisk,
+        errors,
+        duration_ms: durationMs,
+    };
+
+    // Log scan run to database
+    try {
+        await insertScanRun({
+            started_at: new Date(startTime),
+            completed_at: new Date(),
+            total_deals: deals.length,
+            high_risk_count: highRisk,
+            errors,
+            summary: result as unknown as Record<string, unknown>,
+        });
+    } catch (dbError) {
+        console.error('Failed to log scan run:', dbError);
+    }
+
+    // Send Slack summary
+    if (isSlackConfigured() && !singleDealId) {
+        try {
+            await sendScanSummary(deals.length, highRisk, mediumRisk, errors, durationMs);
+        } catch (slackError) {
+            console.error('Failed to send scan summary:', slackError);
+        }
+    }
+
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`Risk scan completed in ${(durationMs / 1000).toFixed(1)}s`);
+    console.log(`Results: ${analyzed} analyzed, ${highRisk} HIGH, ${mediumRisk} MEDIUM, ${lowRisk} LOW, ${errors} errors`);
+    console.log(`${'='.repeat(60)}\n`);
+
+    return result;
+}
