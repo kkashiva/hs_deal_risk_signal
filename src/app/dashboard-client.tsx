@@ -61,14 +61,11 @@ function formatDate(date: Date | string | undefined): string {
     });
 }
 
-const AMOUNT_RANGES = [
-    { label: 'All Amounts', value: '' },
-    { label: 'Under $1,000', value: '0-1000' },
-    { label: '$1,000 - $5,000', value: '1000-5000' },
-    { label: '$5,000 - $25,000', value: '5000-25000' },
-    { label: '$25,000 - $100,000', value: '25000-100000' },
-    { label: 'Over $100,000', value: '100000-999999999' },
-];
+const PIPELINE_MAP: Record<string, string> = {
+    '9308023': 'Enterprise New Sales',
+    '9297003': 'Agency New Sales',
+    '89892425': 'Europe New Sales',
+};
 
 export function DashboardView({
     evaluations,
@@ -82,7 +79,8 @@ export function DashboardView({
     const [filterPipeline, setFilterPipeline] = useState('');
     const [filterRisk, setFilterRisk] = useState('');
     const [filterReason, setFilterReason] = useState('');
-    const [filterAmount, setFilterAmount] = useState('');
+    const [filterAmountMin, setFilterAmountMin] = useState<string>('');
+    const [filterAmountMax, setFilterAmountMax] = useState<string>('');
 
     // Filter evaluations client-side
     const filteredEvaluations = useMemo(() => {
@@ -90,14 +88,14 @@ export function DashboardView({
             if (filterPipeline && e.pipeline !== filterPipeline) return false;
             if (filterRisk && e.risk_level !== filterRisk) return false;
             if (filterReason && e.risk_reason !== filterReason) return false;
-            if (filterAmount) {
-                const [min, max] = filterAmount.split('-').map(Number);
-                const amount = e.deal_amount || 0;
-                if (amount < min || amount > max) return false;
-            }
+
+            const amount = e.deal_amount || 0;
+            if (filterAmountMin && amount < Number(filterAmountMin)) return false;
+            if (filterAmountMax && amount > Number(filterAmountMax)) return false;
+
             return true;
         });
-    }, [evaluations, filterPipeline, filterRisk, filterReason, filterAmount]);
+    }, [evaluations, filterPipeline, filterRisk, filterReason, filterAmountMin, filterAmountMax]);
 
     async function triggerScan() {
         setScanning(true);
@@ -131,7 +129,7 @@ export function DashboardView({
         }
     }
 
-    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterAmount;
+    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterAmountMin || filterAmountMax;
 
     return (
         <div className="animate-in">
@@ -182,7 +180,8 @@ export function DashboardView({
                                 setFilterPipeline('');
                                 setFilterRisk('');
                                 setFilterReason('');
-                                setFilterAmount('');
+                                setFilterAmountMin('');
+                                setFilterAmountMax('');
                             }}
                         >
                             ✕ Clear Filters
@@ -199,7 +198,7 @@ export function DashboardView({
                     >
                         <option value="">All Pipelines</option>
                         {pipelines.map(p => (
-                            <option key={p} value={p}>{p}</option>
+                            <option key={p} value={p}>{PIPELINE_MAP[p] || p}</option>
                         ))}
                     </select>
 
@@ -227,15 +226,24 @@ export function DashboardView({
                         ))}
                     </select>
 
-                    <select
-                        className="filter-select"
-                        value={filterAmount}
-                        onChange={(e) => setFilterAmount(e.target.value)}
-                    >
-                        {AMOUNT_RANGES.map(r => (
-                            <option key={r.value} value={r.value}>{r.label}</option>
-                        ))}
-                    </select>
+                    <div className="filter-amount-group">
+                        <span className="filter-label">Amount:</span>
+                        <input
+                            type="number"
+                            className="filter-input"
+                            placeholder="Min $"
+                            value={filterAmountMin}
+                            onChange={(e) => setFilterAmountMin(e.target.value)}
+                        />
+                        <span className="filter-separator">-</span>
+                        <input
+                            type="number"
+                            className="filter-input"
+                            placeholder="Max $"
+                            value={filterAmountMax}
+                            onChange={(e) => setFilterAmountMax(e.target.value)}
+                        />
+                    </div>
 
                     {hasActiveFilters && (
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>

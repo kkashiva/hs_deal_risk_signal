@@ -355,6 +355,53 @@ body {
   color: var(--text-primary);
 }
 
+.filter-amount-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  height: 32px;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.filter-input {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  width: 60px;
+  outline: none;
+}
+
+.filter-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Remove number input arrows */
+.filter-input::-webkit-outer-spin-button,
+.filter-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.filter-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.filter-separator {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

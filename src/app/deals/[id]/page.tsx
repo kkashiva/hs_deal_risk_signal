@@ -47,7 +47,7 @@ export default async function DealDetailPage({ params }: PageProps) {
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <DealDetailClient dealId={id} />
                     <a
-                        href={`https://app.hubspot.com/contacts/deals/${id}`}
+                        href={`https://app.hubspot.com/contacts/9154210/record/0-3/${id}/`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn"
