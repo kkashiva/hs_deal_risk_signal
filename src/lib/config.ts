@@ -58,4 +58,4 @@ export const EXCLUDED_STAGES = [
     'closedlost',
 ];
 
-export const PROMPT_VERSION = 'v1.0';
+export const PROMPT_VERSION = 'v1.1';

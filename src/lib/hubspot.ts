@@ -177,7 +177,7 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                         case 'emails':
                             record = await client.crm.objects.emails.basicApi.getById(
                                 objectId,
-                                ['hs_timestamp', 'hs_email_subject', 'hs_email_text']
+                                ['hs_timestamp', 'hs_email_subject', 'hs_email_text', 'hs_email_direction']
                             );
                             break;
                         case 'notes':
@@ -207,6 +207,9 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                             timestamp: new Date(record.properties.hs_timestamp || record.createdAt).getTime(),
                             subject: record.properties.hs_email_subject || record.properties.hs_meeting_title || record.properties.hs_call_title || undefined,
                             body: record.properties.hs_email_text || record.properties.hs_note_body || record.properties.hs_meeting_body || record.properties.hs_call_body || undefined,
+                            ...(engagementType === 'EMAIL' && record.properties.hs_email_direction
+                                ? { direction: record.properties.hs_email_direction }
+                                : {}),
                         });
                     }
                 } catch {
@@ -253,6 +256,42 @@ export function computeActivityMetrics(engagements: HubSpotEngagement[]): DealAc
         return body.includes('no show') || body.includes('no-show') || body.includes('cancelled');
     }).length;
 
+    // --- Reply Velocity (median hours between inbound → outbound emails) ---
+    let avgEmailReplyTimeHours: number | null = null;
+    const sortedEmails = [...emails].sort((a, b) => a.timestamp - b.timestamp);
+    const replyGapsHours: number[] = [];
+    for (let i = 1; i < sortedEmails.length; i++) {
+        const prev = sortedEmails[i - 1];
+        const curr = sortedEmails[i];
+        // Inbound followed by outbound = a reply
+        if (
+            prev.direction === 'INCOMING_EMAIL' &&
+            curr.direction !== 'INCOMING_EMAIL' &&
+            curr.direction !== 'FORWARDED_EMAIL'
+        ) {
+            const gapHours = (curr.timestamp - prev.timestamp) / (1000 * 60 * 60);
+            replyGapsHours.push(gapHours);
+        }
+    }
+    if (replyGapsHours.length > 0) {
+        replyGapsHours.sort((a, b) => a - b);
+        const mid = Math.floor(replyGapsHours.length / 2);
+        avgEmailReplyTimeHours = replyGapsHours.length % 2 === 0
+            ? Math.round((replyGapsHours[mid - 1] + replyGapsHours[mid]) / 2)
+            : Math.round(replyGapsHours[mid]);
+    }
+
+    // --- Meeting Cadence (avg days between meetings) ---
+    let avgDaysBetweenMeetings: number | null = null;
+    if (meetings.length >= 2) {
+        const sortedMeetings = meetings.map(m => m.timestamp).sort((a, b) => a - b);
+        const meetingGaps: number[] = [];
+        for (let i = 1; i < sortedMeetings.length; i++) {
+            meetingGaps.push((sortedMeetings[i] - sortedMeetings[i - 1]) / (1000 * 60 * 60 * 24));
+        }
+        avgDaysBetweenMeetings = Math.round(meetingGaps.reduce((a, b) => a + b, 0) / meetingGaps.length);
+    }
+
     return {
         totalEmails: emails.length,
         totalMeetings: meetings.length,
@@ -262,6 +301,8 @@ export function computeActivityMetrics(engagements: HubSpotEngagement[]): DealAc
         daysSinceLastMeeting: lastMeeting ? Math.round((now - lastMeeting) / (1000 * 60 * 60 * 24)) : null,
         meetingNoShows: noShows,
         avgDaysBetweenActivities: avgDaysBetween,
+        avgEmailReplyTimeHours,
+        avgDaysBetweenMeetings,
     };
 }
 

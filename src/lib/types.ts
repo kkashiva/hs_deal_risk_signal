@@ -31,6 +31,7 @@ export interface HubSpotEngagement {
   timestamp: number;
   subject?: string;
   body?: string;
+  direction?: 'INCOMING_EMAIL' | 'FORWARDED_EMAIL' | string; // populated for emails
   metadata?: Record<string, unknown>;
 }
 
@@ -43,6 +44,8 @@ export interface DealActivityMetrics {
   daysSinceLastMeeting: number | null;
   meetingNoShows: number;
   avgDaysBetweenActivities: number | null;
+  avgEmailReplyTimeHours: number | null;
+  avgDaysBetweenMeetings: number | null;
 }
 
 // --- Gong Types ---
@@ -71,7 +74,8 @@ export type RiskReason =
   | 'competition'
   | 'feature_gap'
   | 'low_engagement'
-  | 'multithreading_gap';
+  | 'multithreading_gap'
+  | 'timeline_stalling';
 
 export type EscalationTarget = 'ae' | 'manager' | 'exec';
 
