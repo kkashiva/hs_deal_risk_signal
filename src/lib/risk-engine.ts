@@ -17,7 +17,7 @@ import {
     updateDealRiskFields,
     createTaskForHighRisk,
 } from './hubspot';
-import { getTranscriptsForDeal, isGongConfigured } from './gong';
+import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
 import { analyzeDealRisk } from './ai-analyzer';
 import { sendHighRiskAlert, sendScanSummary, isSlackConfigured } from './slack';
 import { insertRiskEvaluation, insertScanRun } from '@/db/queries';
@@ -51,11 +51,26 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
         }
     }
 
-    // Fetch Gong transcripts
+    // Extract Gong call IDs from note engagements (Gong syncs notes to HubSpot)
     let transcriptSummary: string | null = null;
     if (isGongConfigured()) {
         try {
-            transcriptSummary = await getTranscriptsForDeal(props.dealname);
+            const gongCallIds: string[] = [];
+            for (const eng of engagements) {
+                if (eng.type === 'NOTE' && eng.body) {
+                    const ids = extractGongCallIds(eng.body);
+                    gongCallIds.push(...ids);
+                }
+            }
+
+            if (gongCallIds.length > 0) {
+                // De-duplicate and take most recent (notes are already sorted by timestamp desc)
+                const uniqueIds = [...new Set(gongCallIds)];
+                console.log(`Found ${uniqueIds.length} Gong call ID(s) in HubSpot notes for deal ${deal.id}`);
+                transcriptSummary = await getTranscriptsFromCallIds(uniqueIds);
+            } else {
+                console.log(`No Gong call IDs found in notes for deal ${deal.id}`);
+            }
         } catch (error) {
             console.error(`Gong error for deal ${deal.id}:`, error);
         }

@@ -3,10 +3,9 @@
 // ============================================================
 
 import axios, { AxiosInstance } from 'axios';
-import { GongCall } from './types';
 import { getConfig } from './config';
 
-const GONG_BASE_URL = 'https://us-11546.api.gong.io/v2';
+const GONG_BASE_URL = 'https://us-15203.api.gong.io/v2';
 const MAX_TRANSCRIPT_TOKENS = 4000;
 
 let gongClient: AxiosInstance | null = null;
@@ -43,59 +42,19 @@ export function isGongConfigured(): boolean {
     }
 }
 
-// --- Search Calls by Deal/Company Name ---
+// --- Extract Gong Call IDs from HubSpot Note Bodies ---
 
-export async function fetchCallsForDeal(
-    dealName: string,
-    companyName?: string
-): Promise<GongCall[]> {
-    const client = getClient();
+const GONG_URL_PATTERN = /gong\.io\/call\?id=(\d+)/g;
 
-    const searchTerm = companyName || dealName;
-
-    try {
-        const response = await client.post('/calls', {
-            filter: {
-                fromDateTime: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // last 90 days
-                toDateTime: new Date().toISOString(),
-            },
-            contentSelector: {
-                exposedFields: {
-                    parties: true,
-                },
-            },
-        });
-
-        const calls: GongCall[] = (response.data.calls || [])
-            .filter((call: { title?: string; parties?: { name: string }[] }) => {
-                const title = (call.title || '').toLowerCase();
-                const partyNames = (call.parties || []).map((p: { name: string }) => p.name.toLowerCase());
-                const term = searchTerm.toLowerCase();
-
-                return (
-                    title.includes(term) ||
-                    partyNames.some((name: string) => name.includes(term))
-                );
-            })
-            .map((call: { metaData?: { id: string; title?: string; started?: string; duration?: number }; parties?: { name: string; emailAddress: string }[] }) => ({
-                id: call.metaData?.id || '',
-                title: call.metaData?.title || '',
-                started: call.metaData?.started || '',
-                duration: call.metaData?.duration || 0,
-                parties: (call.parties || []).map((p: { name: string; emailAddress: string }) => ({
-                    name: p.name,
-                    email: p.emailAddress,
-                })),
-            }))
-            .sort((a: GongCall, b: GongCall) =>
-                new Date(b.started).getTime() - new Date(a.started).getTime()
-            );
-
-        return calls.slice(0, 2); // Return last 2 calls
-    } catch (error) {
-        console.error('Error fetching Gong calls:', error);
-        return [];
+export function extractGongCallIds(noteBody: string): string[] {
+    const ids: string[] = [];
+    let match;
+    while ((match = GONG_URL_PATTERN.exec(noteBody)) !== null) {
+        ids.push(match[1]);
     }
+    // Reset regex lastIndex for next call
+    GONG_URL_PATTERN.lastIndex = 0;
+    return ids;
 }
 
 // --- Fetch Transcript for a Call ---
@@ -125,25 +84,24 @@ export async function fetchTranscript(callId: string): Promise<string> {
     }
 }
 
-// --- Get Combined Transcripts for a Deal ---
+// --- Get Combined Transcripts from Call IDs ---
 
-export async function getTranscriptsForDeal(
-    dealName: string,
-    companyName?: string
+export async function getTranscriptsFromCallIds(
+    callIds: string[]
 ): Promise<string | null> {
-    if (!isGongConfigured()) return null;
+    if (!isGongConfigured() || callIds.length === 0) return null;
 
     try {
-        const calls = await fetchCallsForDeal(dealName, companyName);
-        if (calls.length === 0) return null;
-
+        // Take the most recent 2 call IDs
+        const recentIds = callIds.slice(0, 2);
         const transcripts: string[] = [];
 
-        for (const call of calls) {
-            const transcript = await fetchTranscript(call.id);
+        for (const callId of recentIds) {
+            console.log(`Fetching Gong transcript for call ID: ${callId}`);
+            const transcript = await fetchTranscript(callId);
             if (transcript) {
                 transcripts.push(
-                    `--- Call: ${call.title} (${new Date(call.started).toLocaleDateString()}) ---\n${transcript}`
+                    `--- Gong Call ${callId} ---\n${transcript}`
                 );
             }
         }
@@ -160,7 +118,7 @@ export async function getTranscriptsForDeal(
 
         return combined;
     } catch (error) {
-        console.error('Error getting transcripts for deal:', error);
+        console.error('Error getting transcripts from call IDs:', error);
         return null;
     }
 }
