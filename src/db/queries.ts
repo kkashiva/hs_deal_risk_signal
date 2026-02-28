@@ -14,8 +14,8 @@ export async function insertRiskEvaluation(
         `INSERT INTO risk_evaluations (
       deal_id, deal_name, deal_amount, pipeline, risk_level, risk_reason,
       explanation, recommended_action, confidence, escalation_target,
-      model_used, prompt_version, was_lost_later
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      model_used, prompt_version, was_lost_later, deal_metadata, engagement_metrics
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING *`,
         [
             evaluation.deal_id,
@@ -31,6 +31,8 @@ export async function insertRiskEvaluation(
             evaluation.model_used,
             evaluation.prompt_version,
             evaluation.was_lost_later,
+            evaluation.deal_metadata ? JSON.stringify(evaluation.deal_metadata) : null,
+            evaluation.engagement_metrics ? JSON.stringify(evaluation.engagement_metrics) : null,
         ]
     );
     return rows[0];

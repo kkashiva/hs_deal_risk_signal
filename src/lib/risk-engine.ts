@@ -155,6 +155,8 @@ async function processDeal(
                 model_used: provider,
                 prompt_version: promptVersion,
                 was_lost_later: false,
+                deal_metadata: riskInput.deal_metadata as unknown as Record<string, unknown>,
+                engagement_metrics: riskInput.engagement_metrics,
             });
         } catch (dbError) {
             console.error(`DB error for deal ${deal.id}:`, dbError);

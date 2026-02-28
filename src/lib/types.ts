@@ -133,6 +133,8 @@ export interface RiskEvaluation {
   model_used: string;
   prompt_version: string;
   was_lost_later: boolean;
+  deal_metadata?: Record<string, unknown> | null;
+  engagement_metrics?: DealActivityMetrics | null;
   created_at?: Date;
 }
 

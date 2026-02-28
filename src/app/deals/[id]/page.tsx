@@ -5,7 +5,6 @@
 import { getEvaluationsForDeal } from '@/db/queries';
 import Link from 'next/link';
 import { RiskEvaluation, DealActivityMetrics } from '@/lib/types';
-import { fetchDeal, fetchDealEngagements, computeActivityMetrics } from '@/lib/hubspot';
 import { DealDetailClient } from './deal-detail-client';
 
 interface PageProps {
@@ -34,19 +33,9 @@ export default async function DealDetailPage({ params }: PageProps) {
 
     const latest = evaluations.length > 0 ? evaluations[0] : null;
 
-    // Fetch live deal metadata + engagement metrics from HubSpot
-    let dealProps: Record<string, string | null | undefined> | null = null;
-    let metrics: DealActivityMetrics | null = null;
-    try {
-        const deal = await fetchDeal(id);
-        if (deal) {
-            dealProps = deal.properties;
-            const engagements = await fetchDealEngagements(id);
-            metrics = computeActivityMetrics(engagements);
-        }
-    } catch (e) {
-        console.error('Failed to fetch HubSpot data for deal page:', e);
-    }
+    // Read deal metadata + engagement metrics from the latest evaluation (persisted during scan)
+    const dealMeta = latest?.deal_metadata as Record<string, unknown> | null | undefined;
+    const metrics = (latest?.engagement_metrics as DealActivityMetrics | null | undefined) ?? null;
 
     const riskEmoji = !latest ? '—' :
         latest.risk_level === 'HIGH' ? '🔴' :
@@ -61,7 +50,7 @@ export default async function DealDetailPage({ params }: PageProps) {
                         ← Back to Dashboard
                     </Link>
                     <h1 className="detail-title" style={{ marginTop: '8px' }}>
-                        {dealProps?.dealname || latest?.deal_name || `Deal ${id}`}
+                        {(dealMeta?.deal_name as string) || latest?.deal_name || `Deal ${id}`}
                     </h1>
                     <p className="detail-subtitle">
                         Deal ID: {id} · {evaluations.length} evaluation{evaluations.length !== 1 ? 's' : ''}
@@ -89,7 +78,7 @@ export default async function DealDetailPage({ params }: PageProps) {
             ) : (
                 <>
                     {/* ── Deal Metadata + Engagement Metrics ── */}
-                    {dealProps && (
+                    {dealMeta && (
                         <div className="detail-grid" style={{ marginBottom: '24px' }}>
                             {/* Deal Metadata Card */}
                             <div className="detail-card">
@@ -98,50 +87,46 @@ export default async function DealDetailPage({ params }: PageProps) {
                                     <div>
                                         <div className="detail-label">Amount</div>
                                         <div className="detail-value">
-                                            {dealProps.amount ? `$${Number(dealProps.amount).toLocaleString()}` : '—'}
+                                            {dealMeta.amount ? `$${Number(dealMeta.amount).toLocaleString()}` : '—'}
                                         </div>
                                     </div>
                                     <div>
                                         <div className="detail-label">MRR</div>
                                         <div className="detail-value">
-                                            {dealProps.mrr ? `$${Number(dealProps.mrr).toLocaleString()}` : '—'}
+                                            {dealMeta.mrr ? `$${Number(dealMeta.mrr).toLocaleString()}` : '—'}
                                         </div>
                                     </div>
                                     <div>
                                         <div className="detail-label">Stage</div>
                                         <div className="detail-value" style={{ textTransform: 'capitalize' }}>
-                                            {dealProps.dealstage?.replace(/_/g, ' ') || '—'}
+                                            {String(dealMeta.stage || '—').replace(/_/g, ' ')}
                                         </div>
                                     </div>
                                     <div>
                                         <div className="detail-label">Pipeline</div>
-                                        <div className="detail-value">{dealProps.pipeline || '—'}</div>
+                                        <div className="detail-value">{String(dealMeta.pipeline || '—')}</div>
                                     </div>
                                     <div>
                                         <div className="detail-label">Close Date</div>
                                         <div className="detail-value">
-                                            {dealProps.closedate
-                                                ? new Date(dealProps.closedate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                            {dealMeta.close_date
+                                                ? new Date(String(dealMeta.close_date)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                                                 : '—'}
                                         </div>
                                     </div>
                                     <div>
-                                        <div className="detail-label">Created</div>
-                                        <div className="detail-value">
-                                            {dealProps.createdate
-                                                ? new Date(dealProps.createdate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                                : '—'}
-                                        </div>
+                                        <div className="detail-label">Days in Stage</div>
+                                        <div className="detail-value">{String(dealMeta.days_in_stage ?? '—')}</div>
                                     </div>
                                     <div>
                                         <div className="detail-label">Forecast Category</div>
                                         <div className="detail-value" style={{ textTransform: 'capitalize' }}>
-                                            {(dealProps.hs_manual_forecast_category || dealProps.hs_forecast_category)?.replace(/_/g, ' ') || '—'}
+                                            {String(dealMeta.forecast_category || '—').replace(/_/g, ' ')}
                                         </div>
                                     </div>
                                     <div>
                                         <div className="detail-label">Contacts</div>
-                                        <div className="detail-value">{dealProps.num_associated_contacts || '0'}</div>
+                                        <div className="detail-value">{String(dealMeta.num_contacts ?? '0')}</div>
                                     </div>
                                 </div>
                             </div>
