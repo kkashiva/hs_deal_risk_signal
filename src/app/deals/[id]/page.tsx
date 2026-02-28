@@ -85,12 +85,6 @@ export default async function DealDetailPage({ params }: PageProps) {
                                 <h3>Deal Metadata</h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                     <div>
-                                        <div className="detail-label">Amount</div>
-                                        <div className="detail-value">
-                                            {dealMeta.amount ? `$${Number(dealMeta.amount).toLocaleString()}` : '—'}
-                                        </div>
-                                    </div>
-                                    <div>
                                         <div className="detail-label">MRR</div>
                                         <div className="detail-value">
                                             {dealMeta.mrr ? `$${Number(dealMeta.mrr).toLocaleString()}` : '—'}

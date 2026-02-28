@@ -96,10 +96,10 @@ export interface RiskInput {
     deal_name: string;
     amount: number | null;
     mrr: number | null;
-    stage: string;
-    pipeline: string;
-    days_in_stage: number;
-    days_since_creation: number;
+    stage: string | null;
+    pipeline: string | null;
+    days_in_stage: number | null;
+    days_since_creation: number | null;
     close_date: string | null;
     close_date_drift_days: number | null;
     forecast_category: string | null;

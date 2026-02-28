@@ -16,6 +16,7 @@ import {
     computeActivityMetrics,
     updateDealRiskFields,
     createTaskForHighRisk,
+    PIPELINE_MAP
 } from './hubspot';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
 import { analyzeDealRisk } from './ai-analyzer';
@@ -38,9 +39,10 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
     const createDate = new Date(props.createdate).getTime();
     const daysSinceCreation = Math.round((now - createDate) / (1000 * 60 * 60 * 24));
 
-    // Estimate days in current stage (using last modified as proxy)
-    const lastModified = new Date(props.hs_lastmodifieddate).getTime();
-    const daysInStage = Math.round((now - lastModified) / (1000 * 60 * 60 * 24));
+    // Days in current stage
+    const hsDaysInStage = props.hs_v2_time_in_current_stage
+        ? Math.round((now - new Date(props.hs_v2_time_in_current_stage).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
 
     // Calculate close date drift
     let closeDateDrift: number | null = null;
@@ -104,11 +106,11 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
         deal_metadata: {
             deal_id: deal.id,
             deal_name: props.dealname,
-            amount: props.amount ? parseFloat(props.amount) : null,
-            mrr: props.mrr ? parseFloat(props.mrr) : null,
-            stage: props.dealstage,
-            pipeline: props.pipeline,
-            days_in_stage: daysInStage,
+            amount: props.hs_mrr ? parseFloat(props.hs_mrr) : (props.amount ? parseFloat(props.amount) : null),
+            mrr: props.hs_mrr ? parseFloat(props.hs_mrr) : (props.mrr ? parseFloat(props.mrr) : null),
+            stage: props.deal_stage_name__text_ || props.dealstage,
+            pipeline: props.pipeline ? (PIPELINE_MAP[props.pipeline] || props.pipeline) : null,
+            days_in_stage: hsDaysInStage,
             days_since_creation: daysSinceCreation,
             close_date: props.closedate,
             close_date_drift_days: closeDateDrift,
@@ -144,7 +146,7 @@ async function processDeal(
             await insertRiskEvaluation({
                 deal_id: deal.id,
                 deal_name: deal.properties.dealname,
-                deal_amount: deal.properties.amount ? parseFloat(deal.properties.amount) : null,
+                deal_amount: riskInput.deal_metadata.mrr,
                 pipeline: deal.properties.pipeline || null,
                 risk_level: result.risk_level,
                 risk_reason: result.primary_risk_reason,

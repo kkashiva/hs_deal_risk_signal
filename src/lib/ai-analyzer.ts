@@ -11,11 +11,11 @@ import { getConfig, LATE_STAGE_IDS, PROMPT_VERSION } from './config';
 
 export function routeToProvider(
     mrr: number | null,
-    stage: string,
+    stage: string | null,
     mrrThreshold: number
 ): LLMProvider {
     // Late-stage deals always use Claude
-    if (LATE_STAGE_IDS.includes(stage.toLowerCase())) {
+    if (stage && LATE_STAGE_IDS.includes(stage.toLowerCase())) {
         return 'claude';
     }
     // High-value deals use Claude
@@ -83,10 +83,10 @@ DEAL METADATA:
 - Name: ${input.deal_metadata.deal_name}
 - Amount: $${input.deal_metadata.amount || 'Unknown'}
 - MRR: $${input.deal_metadata.mrr || 'Unknown'}
-- Stage: ${input.deal_metadata.stage}
-- Pipeline: ${input.deal_metadata.pipeline}
-- Days in current stage: ${input.deal_metadata.days_in_stage}
-- Days since deal created: ${input.deal_metadata.days_since_creation}
+- Stage: ${input.deal_metadata.stage || 'Unknown'}
+- Pipeline: ${input.deal_metadata.pipeline || 'Unknown'}
+- Days in current stage: ${input.deal_metadata.days_in_stage ?? 'Unknown'}
+- Days since deal created: ${input.deal_metadata.days_since_creation ?? 'Unknown'}
 - Close date: ${input.deal_metadata.close_date || 'Not set'}
 - Close date drift: ${input.deal_metadata.close_date_drift_days !== null ? input.deal_metadata.close_date_drift_days + ' days' : 'N/A'}
 - Forecast category: ${input.deal_metadata.forecast_category || 'Not set'}
@@ -184,7 +184,7 @@ export async function analyzeDealRisk(
 
     console.log(
         `Analyzing deal "${input.deal_metadata.deal_name}" with ${provider} ` +
-        `(MRR: $${input.deal_metadata.mrr}, Stage: ${input.deal_metadata.stage})`
+        `(MRR: $${input.deal_metadata.mrr ?? 'Unknown'}, Stage: ${input.deal_metadata.stage ?? 'Unknown'})`
     );
 
     let result: RiskAnalysisResult;
