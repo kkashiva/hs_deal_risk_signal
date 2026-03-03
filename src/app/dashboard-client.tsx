@@ -85,6 +85,8 @@ export function DashboardView({
     const [filterStage, setFilterStage] = useState('');
     const [filterAmountMin, setFilterAmountMin] = useState<string>('');
     const [filterAmountMax, setFilterAmountMax] = useState<string>('');
+    const [filterCloseMin, setFilterCloseMin] = useState('');
+    const [filterCloseMax, setFilterCloseMax] = useState('');
 
     // Filter evaluations client-side
     const filteredEvaluations = useMemo(() => {
@@ -99,9 +101,18 @@ export function DashboardView({
             if (filterAmountMin && amount < Number(filterAmountMin)) return false;
             if (filterAmountMax && amount > Number(filterAmountMax)) return false;
 
+            const closeDate = (e.deal_metadata as Record<string, unknown>)?.close_date as string | undefined;
+            if (closeDate) {
+                const closeTs = new Date(closeDate).getTime();
+                if (filterCloseMin && closeTs < new Date(filterCloseMin).getTime()) return false;
+                if (filterCloseMax && closeTs > new Date(filterCloseMax).getTime() + 86400000) return false;
+            } else if (filterCloseMin || filterCloseMax) {
+                return false;
+            }
+
             return true;
         });
-    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax]);
+    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax]);
 
     async function triggerScan() {
         setScanning(true);
@@ -151,7 +162,7 @@ export function DashboardView({
         }
     }
 
-    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterAmountMin || filterAmountMax;
+    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax;
 
     function toggleRiskFilter(level: string) {
         if (filterRisk === level) {
@@ -225,6 +236,8 @@ export function DashboardView({
                                 setFilterStage('');
                                 setFilterAmountMin('');
                                 setFilterAmountMax('');
+                                setFilterCloseMin('');
+                                setFilterCloseMax('');
                             }}
                         >
                             ✕ Clear Filters
@@ -296,6 +309,25 @@ export function DashboardView({
                             placeholder="Max $"
                             value={filterAmountMax}
                             onChange={(e) => setFilterAmountMax(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="filter-amount-group">
+                        <span className="filter-label">Close:</span>
+                        <input
+                            type="date"
+                            className="filter-input"
+                            style={{ width: '115px' }}
+                            value={filterCloseMin}
+                            onChange={(e) => setFilterCloseMin(e.target.value)}
+                        />
+                        <span className="filter-separator">-</span>
+                        <input
+                            type="date"
+                            className="filter-input"
+                            style={{ width: '115px' }}
+                            value={filterCloseMax}
+                            onChange={(e) => setFilterCloseMax(e.target.value)}
                         />
                     </div>
 
