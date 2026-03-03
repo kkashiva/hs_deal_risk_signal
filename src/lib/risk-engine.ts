@@ -16,6 +16,7 @@ import {
     computeActivityMetrics,
     updateDealRiskFields,
     createTaskForHighRisk,
+    isDealOpen,
     PIPELINE_MAP
 } from './hubspot';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
@@ -127,7 +128,8 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
 // --- Process a Single Deal ---
 
 async function processDeal(
-    deal: HubSpotDeal
+    deal: HubSpotDeal,
+    isOpen: boolean = true
 ): Promise<{ success: boolean; riskLevel?: string }> {
     try {
         console.log(`Processing deal: ${deal.properties.dealname} (${deal.id})`);
@@ -157,6 +159,7 @@ async function processDeal(
                 model_used: provider,
                 prompt_version: promptVersion,
                 was_lost_later: false,
+                is_deal_open: isOpen,
                 deal_metadata: riskInput.deal_metadata as unknown as Record<string, unknown>,
                 engagement_metrics: riskInput.engagement_metrics,
             });
@@ -220,9 +223,11 @@ export async function runRiskScan(
     console.log(`${'='.repeat(60)}\n`);
 
     let deals: HubSpotDeal[];
+    let isSingleDealMode = false;
 
     if (singleDealId) {
-        // Single deal mode (for testing)
+        // Single deal mode (for testing) — scan even if closed
+        isSingleDealMode = true;
         const deal = await fetchDeal(singleDealId);
         deals = deal ? [deal] : [];
         if (!deal) {
@@ -230,7 +235,15 @@ export async function runRiskScan(
         }
     } else {
         // Full scan mode (with optional pipeline filter)
-        deals = await fetchOpenDeals(pipelineId ? [pipelineId] : undefined);
+        const allDeals = await fetchOpenDeals(pipelineId ? [pipelineId] : undefined);
+
+        // Filter out closed deals (hs_is_open_count !== '1') to conserve AI credits
+        const openDeals = allDeals.filter(d => isDealOpen(d));
+        const skippedCount = allDeals.length - openDeals.length;
+        if (skippedCount > 0) {
+            console.log(`Skipped ${skippedCount} closed deal(s) (hs_is_open_count ≠ 1)`);
+        }
+        deals = openDeals;
     }
 
     console.log(`Found ${deals.length} deals to analyze\n`);
@@ -244,7 +257,12 @@ export async function runRiskScan(
     // Process in batches
     for (let i = 0; i < deals.length; i += BATCH_SIZE) {
         const batch = deals.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(batch.map(deal => processDeal(deal)));
+        const results = await Promise.all(
+            batch.map(deal => {
+                const isOpen = isDealOpen(deal);
+                return processDeal(deal, isOpen);
+            })
+        );
 
         for (const r of results) {
             if (r.success) {

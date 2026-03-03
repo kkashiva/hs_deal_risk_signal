@@ -79,8 +79,14 @@ const DEAL_PROPERTIES = [
     'dealname', 'amount', 'mrr', 'hs_mrr', 'dealstage', 'deal_stage_name__text_', 'pipeline',
     'closedate', 'createdate', 'hs_lastmodifieddate',
     'hubspot_owner_id', 'hs_forecast_category', 'hs_manual_forecast_category',
-    'notes_last_updated', 'num_associated_contacts', 'hs_v2_time_in_current_stage'
+    'notes_last_updated', 'num_associated_contacts', 'hs_v2_time_in_current_stage',
+    'hs_is_open_count'
 ];
+
+/** Returns true if the deal is open (hs_is_open_count === '1') */
+export function isDealOpen(deal: HubSpotDeal): boolean {
+    return deal.properties.hs_is_open_count === '1';
+}
 
 export async function fetchOpenDeals(pipelineIds?: string[]): Promise<HubSpotDeal[]> {
     const client = getClient();

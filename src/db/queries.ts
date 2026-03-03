@@ -14,8 +14,9 @@ export async function insertRiskEvaluation(
         `INSERT INTO risk_evaluations (
       deal_id, deal_name, deal_amount, pipeline, risk_level, risk_reason,
       explanation, recommended_action, confidence, escalation_target,
-      model_used, prompt_version, was_lost_later, deal_metadata, engagement_metrics
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      model_used, prompt_version, was_lost_later, is_deal_open,
+      deal_metadata, engagement_metrics
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
     RETURNING *`,
         [
             evaluation.deal_id,
@@ -31,6 +32,7 @@ export async function insertRiskEvaluation(
             evaluation.model_used,
             evaluation.prompt_version,
             evaluation.was_lost_later,
+            evaluation.is_deal_open ?? true,
             evaluation.deal_metadata ? JSON.stringify(evaluation.deal_metadata) : null,
             evaluation.engagement_metrics ? JSON.stringify(evaluation.engagement_metrics) : null,
         ]
@@ -55,12 +57,13 @@ export async function getLatestEvaluations(filters?: {
     let sql = `
     SELECT DISTINCT ON (deal_id) *
     FROM risk_evaluations
+    WHERE is_deal_open = TRUE
   `;
     const params: unknown[] = [];
     let paramIndex = 1;
 
     if (filters?.riskLevel) {
-        sql += ` WHERE risk_level = $${paramIndex++}`;
+        sql += ` AND risk_level = $${paramIndex++}`;
         params.push(filters.riskLevel);
     }
 
@@ -97,6 +100,7 @@ export async function getRiskCounts(): Promise<{
      FROM (
        SELECT DISTINCT ON (deal_id) deal_id, risk_level
        FROM risk_evaluations
+       WHERE is_deal_open = TRUE
        ORDER BY deal_id, evaluation_date DESC
      ) latest
      GROUP BY risk_level`
@@ -115,14 +119,14 @@ export async function getRiskCounts(): Promise<{
 
 export async function getDistinctPipelines(): Promise<string[]> {
     const rows = await query<{ pipeline: string }>(
-        `SELECT DISTINCT pipeline FROM risk_evaluations WHERE pipeline IS NOT NULL ORDER BY pipeline`
+        `SELECT DISTINCT pipeline FROM risk_evaluations WHERE pipeline IS NOT NULL AND is_deal_open = TRUE ORDER BY pipeline`
     );
     return rows.map(r => r.pipeline);
 }
 
 export async function getDistinctRiskReasons(): Promise<string[]> {
     const rows = await query<{ risk_reason: string }>(
-        `SELECT DISTINCT risk_reason FROM risk_evaluations WHERE risk_reason IS NOT NULL ORDER BY risk_reason`
+        `SELECT DISTINCT risk_reason FROM risk_evaluations WHERE risk_reason IS NOT NULL AND is_deal_open = TRUE ORDER BY risk_reason`
     );
     return rows.map(r => r.risk_reason);
 }
@@ -131,7 +135,7 @@ export async function getDistinctStages(): Promise<string[]> {
     const rows = await query<{ stage: string }>(
         `SELECT DISTINCT deal_metadata->>'stage' as stage 
      FROM risk_evaluations 
-     WHERE deal_metadata->>'stage' IS NOT NULL 
+     WHERE deal_metadata->>'stage' IS NOT NULL AND is_deal_open = TRUE
      ORDER BY stage`
     );
     return rows.map(r => r.stage);
