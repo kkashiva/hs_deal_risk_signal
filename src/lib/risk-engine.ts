@@ -209,10 +209,14 @@ async function processDeal(
 
 // --- Run Full Risk Scan ---
 
-export async function runRiskScan(singleDealId?: string): Promise<ScanResult> {
+export async function runRiskScan(
+    singleDealId?: string,
+    pipelineId?: string
+): Promise<ScanResult> {
     const startTime = Date.now();
     console.log(`\n${'='.repeat(60)}`);
     console.log(`Risk scan started at ${new Date().toISOString()}`);
+    if (pipelineId) console.log(`Target Pipeline: ${pipelineId}`);
     console.log(`${'='.repeat(60)}\n`);
 
     let deals: HubSpotDeal[];
@@ -225,8 +229,8 @@ export async function runRiskScan(singleDealId?: string): Promise<ScanResult> {
             console.log(`Deal ${singleDealId} not found`);
         }
     } else {
-        // Full scan mode
-        deals = await fetchOpenDeals();
+        // Full scan mode (with optional pipeline filter)
+        deals = await fetchOpenDeals(pipelineId ? [pipelineId] : undefined);
     }
 
     console.log(`Found ${deals.length} deals to analyze\n`);

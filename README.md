@@ -103,13 +103,19 @@ You can trigger the risk scan manually from the terminal using `curl`.
 **Full Scan:**
 ```bash
 curl -X GET "http://localhost:3000/api/cron/risk-scan" \
-     -H "Authorization: Bearer your_secure_random_string"
+     -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
 **Specific Deal:**
 ```bash
 curl -X GET "http://localhost:3000/api/cron/risk-scan?deal_id=YOUR_DEAL_ID" \
-     -H "Authorization: Bearer your_secure_random_string"
+     -H "Authorization: Bearer YOUR_CRON_SECRET"
+```
+
+**Specific Pipeline:**
+```bash
+curl -X GET "http://localhost:3000/api/cron/risk-scan?pipeline_id=YOUR_PIPELINE_ID" \
+     -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
 ### 5. Deploy to Vercel
