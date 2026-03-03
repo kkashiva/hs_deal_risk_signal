@@ -262,6 +262,38 @@ body {
   color: var(--accent);
 }
 
+.summary-card-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.breakdown-label {
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.breakdown-count {
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  min-width: 24px;
+  text-align: center;
+}
+
 /* --- Risk Badges --- */
 
 .risk-badge {

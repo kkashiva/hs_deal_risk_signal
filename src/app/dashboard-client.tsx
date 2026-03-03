@@ -6,11 +6,11 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { RiskEvaluation } from '@/lib/types';
+import { RiskEvaluation, RiskCounts } from '@/lib/types';
 
 interface DashboardViewProps {
     evaluations: RiskEvaluation[];
-    counts: { total: number; high: number; medium: number; low: number };
+    counts: RiskCounts;
     pipelines: string[];
     riskReasons: string[];
     stages: string[];
@@ -186,6 +186,27 @@ function CustomDatePicker({ value, onChange, placeholder, align = 'left' }: { va
     );
 }
 
+function PipelineBreakdown({ breakdown }: { breakdown: Record<string, number> }) {
+    if (!breakdown || Object.keys(breakdown).length === 0) return null;
+
+    return (
+        <div className="summary-card-breakdown">
+            {Object.entries(breakdown).map(([id, count]) => {
+                if (count === 0) return null;
+                const label = PIPELINE_MAP[id] || id;
+                // Shorten labels for breakdown items
+                const shortLabel = label.replace(' New Sales', '');
+                return (
+                    <div key={id} className="breakdown-item">
+                        <span className="breakdown-label">{shortLabel}</span>
+                        <span className="breakdown-count">{count}</span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 
 export function DashboardView({
     evaluations,
@@ -301,6 +322,7 @@ export function DashboardView({
                 >
                     <div className="summary-card-label">Total Deals Scanned</div>
                     <div className="summary-card-value">{counts.total}</div>
+                    <PipelineBreakdown breakdown={counts.pipelineBreakdown.total} />
                 </div>
                 <div
                     className={`summary-card high ${filterRisk === 'HIGH' ? 'active' : ''}`}
@@ -308,6 +330,7 @@ export function DashboardView({
                 >
                     <div className="summary-card-label">High Risk</div>
                     <div className="summary-card-value">{counts.high}</div>
+                    <PipelineBreakdown breakdown={counts.pipelineBreakdown.high} />
                 </div>
                 <div
                     className={`summary-card medium ${filterRisk === 'MEDIUM' ? 'active' : ''}`}
@@ -315,6 +338,7 @@ export function DashboardView({
                 >
                     <div className="summary-card-label">Medium Risk</div>
                     <div className="summary-card-value">{counts.medium}</div>
+                    <PipelineBreakdown breakdown={counts.pipelineBreakdown.medium} />
                 </div>
                 <div
                     className={`summary-card low ${filterRisk === 'LOW' ? 'active' : ''}`}
@@ -322,6 +346,7 @@ export function DashboardView({
                 >
                     <div className="summary-card-label">Low Risk</div>
                     <div className="summary-card-value">{counts.low}</div>
+                    <PipelineBreakdown breakdown={counts.pipelineBreakdown.low} />
                 </div>
             </div>
 

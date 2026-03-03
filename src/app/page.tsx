@@ -27,7 +27,10 @@ async function getDashboardData() {
   } catch {
     return {
       evaluations: [] as RiskEvaluation[],
-      counts: { total: 0, high: 0, medium: 0, low: 0 },
+      counts: {
+        total: 0, high: 0, medium: 0, low: 0,
+        pipelineBreakdown: { total: {}, high: {}, medium: {}, low: {} }
+      },
       pipelines: [] as string[],
       riskReasons: [] as string[],
       stages: [] as string[],

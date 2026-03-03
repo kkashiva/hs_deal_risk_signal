@@ -149,6 +149,19 @@ export interface ScanRun {
   summary?: Record<string, unknown>;
 }
 
+export interface RiskCounts {
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+  pipelineBreakdown: {
+    total: Record<string, number>;
+    high: Record<string, number>;
+    medium: Record<string, number>;
+    low: Record<string, number>;
+  };
+}
+
 // --- API Response Types ---
 
 export interface ScanResult {

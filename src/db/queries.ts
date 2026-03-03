@@ -3,7 +3,7 @@
 // ============================================================
 
 import { query } from './client';
-import { RiskEvaluation, ScanRun } from '@/lib/types';
+import { RiskEvaluation, ScanRun, RiskCounts } from '@/lib/types';
 
 // --- Risk Evaluations ---
 
@@ -89,30 +89,44 @@ export async function getLatestEvaluations(filters?: {
     return query<RiskEvaluation>(sql, params);
 }
 
-export async function getRiskCounts(): Promise<{
-    total: number;
-    high: number;
-    medium: number;
-    low: number;
-}> {
-    const rows = await query<{ risk_level: string; count: string }>(
-        `SELECT risk_level, COUNT(DISTINCT deal_id)::text as count
+export async function getRiskCounts(): Promise<RiskCounts> {
+    const rows = await query<{ risk_level: string; pipeline: string; count: string }>(
+        `SELECT risk_level, pipeline, COUNT(DISTINCT deal_id)::text as count
      FROM (
-       SELECT DISTINCT ON (deal_id) deal_id, risk_level
+       SELECT DISTINCT ON (deal_id) deal_id, risk_level, pipeline
        FROM risk_evaluations
        WHERE is_deal_open = TRUE
        ORDER BY deal_id, evaluation_date DESC
      ) latest
-     GROUP BY risk_level`
+     GROUP BY risk_level, pipeline`
     );
 
-    const counts = { total: 0, high: 0, medium: 0, low: 0 };
+    const counts: RiskCounts = {
+        total: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        pipelineBreakdown: {
+            total: {},
+            high: {},
+            medium: {},
+            low: {},
+        },
+    };
+
     for (const row of rows) {
         const c = parseInt(row.count);
+        const level = row.risk_level.toLowerCase() as 'high' | 'medium' | 'low';
+        const pipeline = row.pipeline || 'unknown';
+
         counts.total += c;
-        if (row.risk_level === 'HIGH') counts.high = c;
-        if (row.risk_level === 'MEDIUM') counts.medium = c;
-        if (row.risk_level === 'LOW') counts.low = c;
+        if (level === 'high') counts.high += c;
+        else if (level === 'medium') counts.medium += c;
+        else if (level === 'low') counts.low += c;
+
+        // Pipeline breakdowns
+        counts.pipelineBreakdown.total[pipeline] = (counts.pipelineBreakdown.total[pipeline] || 0) + c;
+        counts.pipelineBreakdown[level][pipeline] = (counts.pipelineBreakdown[level][pipeline] || 0) + c;
     }
     return counts;
 }
