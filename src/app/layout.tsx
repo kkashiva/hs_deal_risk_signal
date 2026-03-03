@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Link from 'next/link';
 import Image from 'next/image';
+import { LogoutButton } from './logout-button';
 
 export const metadata: Metadata = {
   title: "Sales Deal Risk Engine — AI Early Warning",
@@ -28,6 +29,7 @@ export default function RootLayout({
             <div className="nav-actions">
               <Link href="/" className="btn btn-sm">📊 Dashboard</Link>
               <Link href="/scan-history" className="btn btn-sm">📋 Scan History</Link>
+              <LogoutButton />
             </div>
           </nav>
           {children}
