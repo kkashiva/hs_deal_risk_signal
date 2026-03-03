@@ -175,13 +175,45 @@ body {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 20px;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
 }
 
 .summary-card:hover {
   border-color: var(--border-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  background: var(--bg-card-hover);
 }
+
+.summary-card:active {
+  transform: translateY(0);
+}
+
+.summary-card.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+.summary-card.active.high {
+  border-color: var(--risk-high);
+  background: var(--risk-high-bg);
+  box-shadow: 0 0 20px rgba(255, 77, 106, 0.15);
+}
+
+.summary-card.active.medium {
+  border-color: var(--risk-medium);
+  background: var(--risk-medium-bg);
+  box-shadow: 0 0 20px rgba(255, 179, 71, 0.15);
+}
+
+.summary-card.active.low {
+  border-color: var(--risk-low);
+  background: var(--risk-low-bg);
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
+}
+
 
 .summary-card-label {
   font-size: 12px;
@@ -395,6 +427,7 @@ body {
 }
 
 .filter-input[type=number] {
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 

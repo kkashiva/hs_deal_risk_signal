@@ -153,23 +153,43 @@ export function DashboardView({
 
     const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterAmountMin || filterAmountMax;
 
+    function toggleRiskFilter(level: string) {
+        if (filterRisk === level) {
+            setFilterRisk('');
+        } else {
+            setFilterRisk(level);
+        }
+    }
+
     return (
         <div className="animate-in">
             {/* Summary Cards */}
             <div className="summary-grid">
-                <div className="summary-card total">
+                <div
+                    className={`summary-card total ${!filterRisk ? 'active' : ''}`}
+                    onClick={() => setFilterRisk('')}
+                >
                     <div className="summary-card-label">Total Deals Scanned</div>
                     <div className="summary-card-value">{counts.total}</div>
                 </div>
-                <div className="summary-card high">
+                <div
+                    className={`summary-card high ${filterRisk === 'HIGH' ? 'active' : ''}`}
+                    onClick={() => toggleRiskFilter('HIGH')}
+                >
                     <div className="summary-card-label">High Risk</div>
                     <div className="summary-card-value">{counts.high}</div>
                 </div>
-                <div className="summary-card medium">
+                <div
+                    className={`summary-card medium ${filterRisk === 'MEDIUM' ? 'active' : ''}`}
+                    onClick={() => toggleRiskFilter('MEDIUM')}
+                >
                     <div className="summary-card-label">Medium Risk</div>
                     <div className="summary-card-value">{counts.medium}</div>
                 </div>
-                <div className="summary-card low">
+                <div
+                    className={`summary-card low ${filterRisk === 'LOW' ? 'active' : ''}`}
+                    onClick={() => toggleRiskFilter('LOW')}
+                >
                     <div className="summary-card-label">Low Risk</div>
                     <div className="summary-card-value">{counts.low}</div>
                 </div>
