@@ -127,6 +127,16 @@ export async function getDistinctRiskReasons(): Promise<string[]> {
     return rows.map(r => r.risk_reason);
 }
 
+export async function getDistinctStages(): Promise<string[]> {
+    const rows = await query<{ stage: string }>(
+        `SELECT DISTINCT deal_metadata->>'stage' as stage 
+     FROM risk_evaluations 
+     WHERE deal_metadata->>'stage' IS NOT NULL 
+     ORDER BY stage`
+    );
+    return rows.map(r => r.stage);
+}
+
 export async function markDealAsLost(dealId: string): Promise<void> {
     await query(
         `UPDATE risk_evaluations SET was_lost_later = true WHERE deal_id = $1`,

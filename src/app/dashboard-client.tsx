@@ -13,6 +13,7 @@ interface DashboardViewProps {
     counts: { total: number; high: number; medium: number; low: number };
     pipelines: string[];
     riskReasons: string[];
+    stages: string[];
     error: string | null;
 }
 
@@ -72,6 +73,7 @@ export function DashboardView({
     counts,
     pipelines,
     riskReasons,
+    stages,
     error,
 }: DashboardViewProps) {
     const [scanning, setScanning] = useState(false);
@@ -80,6 +82,7 @@ export function DashboardView({
     const [filterPipeline, setFilterPipeline] = useState('');
     const [filterRisk, setFilterRisk] = useState('');
     const [filterReason, setFilterReason] = useState('');
+    const [filterStage, setFilterStage] = useState('');
     const [filterAmountMin, setFilterAmountMin] = useState<string>('');
     const [filterAmountMax, setFilterAmountMax] = useState<string>('');
 
@@ -89,6 +92,8 @@ export function DashboardView({
             if (filterPipeline && e.pipeline !== filterPipeline) return false;
             if (filterRisk && e.risk_level !== filterRisk) return false;
             if (filterReason && e.risk_reason !== filterReason) return false;
+            const dealStage = (e.deal_metadata as Record<string, unknown>)?.stage as string | undefined;
+            if (filterStage && dealStage !== filterStage) return false;
 
             const amount = e.deal_amount || 0;
             if (filterAmountMin && amount < Number(filterAmountMin)) return false;
@@ -96,7 +101,7 @@ export function DashboardView({
 
             return true;
         });
-    }, [evaluations, filterPipeline, filterRisk, filterReason, filterAmountMin, filterAmountMax]);
+    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax]);
 
     async function triggerScan() {
         setScanning(true);
@@ -146,7 +151,7 @@ export function DashboardView({
         }
     }
 
-    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterAmountMin || filterAmountMax;
+    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterAmountMin || filterAmountMax;
 
     return (
         <div className="animate-in">
@@ -197,6 +202,7 @@ export function DashboardView({
                                 setFilterPipeline('');
                                 setFilterRisk('');
                                 setFilterReason('');
+                                setFilterStage('');
                                 setFilterAmountMin('');
                                 setFilterAmountMax('');
                             }}
@@ -240,6 +246,17 @@ export function DashboardView({
                             <option key={r} value={r}>
                                 {r.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                             </option>
+                        ))}
+                    </select>
+
+                    <select
+                        className="filter-select"
+                        value={filterStage}
+                        onChange={(e) => setFilterStage(e.target.value)}
+                    >
+                        <option value="">All Stages</option>
+                        {stages.map(s => (
+                            <option key={s} value={s}>{s}</option>
                         ))}
                     </select>
 
@@ -287,6 +304,7 @@ export function DashboardView({
                             <tr>
                                 <th>Deal Name</th>
                                 <th>Amount</th>
+                                <th>Stage</th>
                                 <th>Risk Level</th>
                                 <th>Primary Risk</th>
                                 <th>Confidence</th>
@@ -304,6 +322,7 @@ export function DashboardView({
                                         </Link>
                                     </td>
                                     <td>{formatAmount(evaluation.deal_amount)}</td>
+                                    <td style={{ fontSize: '12px' }}>{(evaluation.deal_metadata as Record<string, unknown>)?.stage as string || '—'}</td>
                                     <td><RiskBadge level={evaluation.risk_level} /></td>
                                     <td style={{ textTransform: 'capitalize' }}>
                                         {evaluation.risk_reason?.replace(/_/g, ' ') || '—'}
