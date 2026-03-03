@@ -2,6 +2,8 @@
 // Scan Runs API Route — Cron Execution History
 // ============================================================
 
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { getRecentScanRuns } from '@/db/queries';
 

@@ -2,6 +2,8 @@
 // Deal Detail Page — Risk History + Deal Metadata + Engagement Metrics
 // ============================================================
 
+export const dynamic = 'force-dynamic';
+
 import { getEvaluationsForDeal } from '@/db/queries';
 import Link from 'next/link';
 import { RiskEvaluation, DealActivityMetrics } from '@/lib/types';

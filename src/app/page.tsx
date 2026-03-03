@@ -2,6 +2,8 @@
 // Dashboard Page — Risk Overview (Server Component)
 // ============================================================
 
+export const dynamic = 'force-dynamic';
+
 import {
   getLatestEvaluations,
   getRiskCounts,

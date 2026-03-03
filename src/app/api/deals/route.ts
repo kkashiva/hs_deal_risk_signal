@@ -2,6 +2,8 @@
 // Deals API Route — List with Filters
 // ============================================================
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getLatestEvaluations, getRiskCounts } from '@/db/queries';
 
