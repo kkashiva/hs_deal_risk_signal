@@ -111,9 +111,11 @@ function CustomDatePicker({ value, onChange, placeholder, align = 'left' }: { va
     };
 
     const handleSelect = (day: number) => {
-        const selected = new Date(year, month, day);
-        // Format as YYYY-MM-DD for consistency with input[type=date]
-        const formatted = selected.toISOString().split('T')[0];
+        // Create date string manually to avoid timezone/UTC shift issues
+        const yyyy = year;
+        const mm = String(month + 1).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        const formatted = `${yyyy}-${mm}-${dd}`;
         onChange(formatted);
         setIsOpen(false);
     };
