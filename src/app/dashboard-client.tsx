@@ -68,7 +68,7 @@ const PIPELINE_MAP: Record<string, string> = {
     '89892425': 'Europe New Sales',
 };
 
-function CustomDatePicker({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder: string }) {
+function CustomDatePicker({ value, onChange, placeholder, align = 'left' }: { value: string, onChange: (val: string) => void, placeholder: string, align?: 'left' | 'right' }) {
     const [isOpen, setIsOpen] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
     const containerRef = useRef<HTMLDivElement>(null);
@@ -148,7 +148,7 @@ function CustomDatePicker({ value, onChange, placeholder }: { value: string, onC
 
             {isOpen && (
                 <>
-                    <div className="calendar-modal">
+                    <div className={`calendar-modal ${align === 'right' ? 'align-right' : ''}`}>
                         <div className="calendar-header">
                             <button className="calendar-nav-btn" onClick={() => changeMonth(-1)}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -443,6 +443,7 @@ export function DashboardView({
                             value={filterCloseMax}
                             onChange={setFilterCloseMax}
                             placeholder="To"
+                            align="right"
                         />
                     </div>
 
