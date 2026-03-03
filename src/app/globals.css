@@ -324,6 +324,7 @@ body {
 
 .filter-select {
   appearance: none;
+  -webkit-appearance: none;
   padding: 6px 28px 6px 12px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -631,6 +632,139 @@ td .confidence-fill {
   th,
   td {
     padding: 10px 12px;
+  }
+}
+
+/* --- Deal Detail Page UI Improvements --- */
+
+.summary-bar-container {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-primary);
+  margin: -24px -24px 24px -24px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+  backdrop-filter: blur(12px);
+}
+
+.summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.summary-bar-stats {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex: 1;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.summary-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.full-width-section {
+  grid-column: 1 / -1;
+}
+
+.ai-analysis-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  margin-bottom: 24px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.ai-analysis-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+}
+
+.ai-analysis-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-analysis-title span {
+  font-size: 24px;
+}
+
+.ai-explanation {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+.recommended-action-box {
+  background: var(--accent-bg);
+  border-left: 4px solid var(--accent);
+  padding: 20px;
+  border-radius: var(--radius-md);
+}
+
+.recommended-action-box h4 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent-hover);
+  margin-bottom: 8px;
+}
+
+.recommended-action-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+@media (max-width: 1024px) {
+  .summary-bar {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .summary-bar-stats {
+    gap: 16px;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .ai-analysis-grid {
+    grid-template-columns: 1fr;
   }
 }
 
