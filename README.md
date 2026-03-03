@@ -91,14 +91,29 @@ MRR_ROUTING_THRESHOLD=1200
 \`\`\`
 
 ### 3. Local Development
-\`\`\`bash
+```bash
 npm install
 npm run dev
 # Dashboard runs on http://localhost:3000
-\`\`\`
+```
 
-### 4. Deploy to Vercel
+### 4. Manual Scanning
+You can trigger the risk scan manually from the terminal using `curl`.
+
+**Full Scan:**
+```bash
+curl -X GET "http://localhost:3000/api/cron/risk-scan" \
+     -H "Authorization: Bearer your_secure_random_string"
+```
+
+**Specific Deal:**
+```bash
+curl -X GET "http://localhost:3000/api/cron/risk-scan?deal_id=YOUR_DEAL_ID" \
+     -H "Authorization: Bearer your_secure_random_string"
+```
+
+### 5. Deploy to Vercel
 Deploy the application to Vercel. Ensure all environment variables are added to the Vercel project settings. The cron job is pre-configured in `vercel.json` and will run automatically.
-\`\`\`bash
+```bash
 npx vercel --prod
-\`\`\`
+```
