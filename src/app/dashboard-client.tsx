@@ -4,7 +4,7 @@
 // Dashboard Client — Filters, Table, Scan Trigger
 // ============================================================
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { RiskEvaluation } from '@/lib/types';
 
@@ -67,6 +67,125 @@ const PIPELINE_MAP: Record<string, string> = {
     '9297003': 'Agency New Sales',
     '89892425': 'Europe New Sales',
 };
+
+function CustomDatePicker({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder: string }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [viewDate, setViewDate] = useState(new Date());
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Close on click outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOpen]);
+
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const daysOfWeek = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // Days from previous month to fill the first row
+    const prevMonthDays = [];
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    for (let i = firstDayOfMonth - 1; i >= 0; i--) {
+        prevMonthDays.push(daysInPrevMonth - i);
+    }
+
+    const currentMonthDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    const changeMonth = (offset: number) => {
+        setViewDate(new Date(year, month + offset, 1));
+    };
+
+    const handleSelect = (day: number) => {
+        const selected = new Date(year, month, day);
+        // Format as YYYY-MM-DD for consistency with input[type=date]
+        const formatted = selected.toISOString().split('T')[0];
+        onChange(formatted);
+        setIsOpen(false);
+    };
+
+    const isToday = (day: number) => {
+        const today = new Date();
+        return today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+    };
+
+    const isSelected = (day: number) => {
+        if (!value) return false;
+        const sel = new Date(value);
+        return sel.getDate() === day && sel.getMonth() === month && sel.getFullYear() === year;
+    };
+
+    const displayDate = value ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : placeholder;
+
+    return (
+        <div className="date-picker-container" ref={containerRef}>
+            <div
+                className={`date-picker-input-fallback ${isOpen ? 'active' : ''}`}
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <span>{displayDate}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+            </div>
+
+            {isOpen && (
+                <>
+                    <div className="calendar-modal">
+                        <div className="calendar-header">
+                            <button className="calendar-nav-btn" onClick={() => changeMonth(-1)}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="15 18 9 12 15 6"></polyline>
+                                </svg>
+                            </button>
+                            <div className="calendar-title">{months[month]} {year}</div>
+                            <button className="calendar-nav-btn" onClick={() => changeMonth(1)}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="calendar-grid">
+                            {daysOfWeek.map(d => (
+                                <div key={d} className="calendar-weekday">{d}</div>
+                            ))}
+                            {prevMonthDays.map(d => (
+                                <div key={`prev-${d}`} className="calendar-day other-month">{d}</div>
+                            ))}
+                            {currentMonthDays.map(d => (
+                                <div
+                                    key={d}
+                                    className={`calendar-day ${isToday(d) ? 'today' : ''} ${isSelected(d) ? 'selected' : ''}`}
+                                    onClick={() => handleSelect(d)}
+                                >
+                                    {d}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 
 export function DashboardView({
     evaluations,
@@ -314,20 +433,16 @@ export function DashboardView({
 
                     <div className="filter-amount-group">
                         <span className="filter-label">Close:</span>
-                        <input
-                            type="date"
-                            className="filter-input"
-                            style={{ width: '115px' }}
+                        <CustomDatePicker
                             value={filterCloseMin}
-                            onChange={(e) => setFilterCloseMin(e.target.value)}
+                            onChange={setFilterCloseMin}
+                            placeholder="From"
                         />
                         <span className="filter-separator">-</span>
-                        <input
-                            type="date"
-                            className="filter-input"
-                            style={{ width: '115px' }}
+                        <CustomDatePicker
                             value={filterCloseMax}
-                            onChange={(e) => setFilterCloseMax(e.target.value)}
+                            onChange={setFilterCloseMax}
+                            placeholder="To"
                         />
                     </div>
 
