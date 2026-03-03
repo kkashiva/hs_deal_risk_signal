@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Link from 'next/link';
+import Image from 'next/image';
 
 export const metadata: Metadata = {
   title: "Sales Deal Risk Engine — AI Early Warning",
@@ -16,16 +18,16 @@ export default function RootLayout({
       <body>
         <div className="app-container">
           <nav className="nav">
-            <a href="/" className="nav-brand">
-              <span className="nav-brand-icon">🛡️</span>
+            <Link href="/" className="nav-brand">
+              <Image src="/riverside.svg" alt="Riverside.fm" width={149} height={24} style={{ height: '24px', width: 'auto', marginRight: '8px' }} priority />
               <div>
                 <h1>Sales Deal Risk Engine</h1>
                 <span>AI Early Warning System</span>
               </div>
-            </a>
+            </Link>
             <div className="nav-actions">
-              <a href="/" className="btn btn-sm">📊 Dashboard</a>
-              <a href="/scan-history" className="btn btn-sm">📋 Scan History</a>
+              <Link href="/" className="btn btn-sm">📊 Dashboard</Link>
+              <Link href="/scan-history" className="btn btn-sm">📋 Scan History</Link>
             </div>
           </nav>
           {children}

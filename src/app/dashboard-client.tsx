@@ -76,6 +76,7 @@ export function DashboardView({
 }: DashboardViewProps) {
     const [scanning, setScanning] = useState(false);
     const [scanResult, setScanResult] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [filterPipeline, setFilterPipeline] = useState('');
     const [filterRisk, setFilterRisk] = useState('');
     const [filterReason, setFilterReason] = useState('');
@@ -129,6 +130,22 @@ export function DashboardView({
         }
     }
 
+    async function triggerDealScan(dealId: string) {
+        setActionLoading(dealId);
+        try {
+            const res = await fetch(`/api/deals/${dealId}`, { method: 'POST' });
+            if (res.ok) {
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                alert('Scan failed');
+            }
+        } catch {
+            alert('Error running scan');
+        } finally {
+            setActionLoading(null);
+        }
+    }
+
     const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterAmountMin || filterAmountMax;
 
     return (
@@ -154,7 +171,7 @@ export function DashboardView({
             </div>
 
             {/* Scan Trigger */}
-            <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ display: 'none', marginBottom: '24px', alignItems: 'center', gap: '16px' }}>
                 <button
                     className="btn btn-primary"
                     onClick={triggerScan}
@@ -274,8 +291,8 @@ export function DashboardView({
                                 <th>Primary Risk</th>
                                 <th>Confidence</th>
                                 <th>Escalation</th>
-                                <th>Model</th>
                                 <th>Last Scanned</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -297,11 +314,29 @@ export function DashboardView({
                                             evaluation.escalation_target === 'manager' ? '👔 Manager' :
                                                 '👤 AE'}
                                     </td>
-                                    <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                        {evaluation.model_used}
-                                    </td>
                                     <td style={{ fontSize: '12px' }}>
                                         {formatDate(evaluation.evaluation_date)}
+                                    </td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                className="btn btn-sm"
+                                                onClick={() => triggerDealScan(evaluation.deal_id)}
+                                                title="Re-run Scan"
+                                                disabled={actionLoading === evaluation.deal_id}
+                                            >
+                                                {actionLoading === evaluation.deal_id ? '⏳' : '🔄'}
+                                            </button>
+                                            <a
+                                                href={`https://app.hubspot.com/contacts/9154210/record/0-3/${evaluation.deal_id}/`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-sm"
+                                                title="Open in HubSpot"
+                                            >
+                                                🔗
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
