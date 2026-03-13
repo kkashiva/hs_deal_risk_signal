@@ -9,15 +9,11 @@ import {
     DealActivityMetrics,
     RiskAnalysisResult,
 } from './types';
+import { PIPELINE_MAP } from './mappings';
 import { getConfig, EXCLUDED_STAGES } from './config';
 
 // --- Constants ---
 
-export const PIPELINE_MAP: Record<string, string> = {
-    '9297003': 'Agency New Sales',
-    '9308023': 'Enterprise New Sales',
-    '89892425': 'Europe New Sales'
-};
 
 let hubspotClient: Client | null = null;
 

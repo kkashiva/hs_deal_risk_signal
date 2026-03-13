@@ -7,6 +7,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { RiskEvaluation, RiskCounts } from '@/lib/types';
+import { PIPELINE_MAP, STAGE_MAP, getNormalizedStage } from '@/lib/mappings';
 
 interface DashboardViewProps {
     evaluations: RiskEvaluation[];
@@ -62,11 +63,6 @@ function formatDate(date: Date | string | undefined): string {
     });
 }
 
-const PIPELINE_MAP: Record<string, string> = {
-    '9308023': 'Enterprise New Sales',
-    '9297003': 'Agency New Sales',
-    '89892425': 'Europe New Sales',
-};
 
 function CustomDatePicker({ value, onChange, placeholder, align = 'left' }: { value: string, onChange: (val: string) => void, placeholder: string, align?: 'left' | 'right' }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -230,14 +226,16 @@ export function DashboardView({
     const [filterCloseMin, setFilterCloseMin] = useState('');
     const [filterCloseMax, setFilterCloseMax] = useState('');
 
-    // Filter evaluations client-side
+    // Filter evaluations client-side and normalize stages
     const filteredEvaluations = useMemo(() => {
         return evaluations.filter((e: RiskEvaluation) => {
             if (filterPipeline && e.pipeline !== filterPipeline) return false;
             if (filterRisk && e.risk_level !== filterRisk) return false;
             if (filterReason && e.risk_reason !== filterReason) return false;
-            const dealStage = (e.deal_metadata as Record<string, unknown>)?.stage as string | undefined;
-            if (filterStage && dealStage !== filterStage) return false;
+
+            const rawStage = (e.deal_metadata as Record<string, unknown>)?.stage as string | undefined;
+            const normalizedStage = getNormalizedStage(rawStage, e.pipeline);
+            if (filterStage && normalizedStage !== filterStage) return false;
 
             const amount = e.deal_amount || 0;
             if (filterAmountMin && amount < Number(filterAmountMin)) return false;
@@ -255,6 +253,22 @@ export function DashboardView({
             return true;
         });
     }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax]);
+
+    // Unique normalized stages for the filter dropdown
+    const uniqueNormalizedStages = useMemo(() => {
+        const set = new Set<string>();
+        // Add all target mapping values to ensure they all appear in the dropdown
+        Object.values(STAGE_MAP).forEach(pipelineStages => {
+            Object.values(pipelineStages).forEach(stage => set.add(stage));
+        });
+        // Also add any stages from evaluations that might not be in the mapping
+        evaluations.forEach(e => {
+            const rawStage = (e.deal_metadata as Record<string, unknown>)?.stage as string | undefined;
+            const normalized = getNormalizedStage(rawStage, e.pipeline);
+            if (normalized) set.add(normalized);
+        });
+        return Array.from(set).sort();
+    }, [evaluations]);
 
     async function triggerScan() {
         setScanning(true);
@@ -434,7 +448,7 @@ export function DashboardView({
                         onChange={(e) => setFilterStage(e.target.value)}
                     >
                         <option value="">All Stages</option>
-                        {stages.map(s => (
+                        {uniqueNormalizedStages.map(s => (
                             <option key={s} value={s}>{s}</option>
                         ))}
                     </select>
@@ -517,7 +531,7 @@ export function DashboardView({
                                         </Link>
                                     </td>
                                     <td>{formatAmount(evaluation.deal_amount)}</td>
-                                    <td style={{ fontSize: '12px' }}>{(evaluation.deal_metadata as Record<string, unknown>)?.stage as string || '—'}</td>
+                                    <td style={{ fontSize: '12px' }}>{getNormalizedStage((evaluation.deal_metadata as Record<string, unknown>)?.stage as string, evaluation.pipeline) || '—'}</td>
                                     <td><RiskBadge level={evaluation.risk_level} /></td>
                                     <td style={{ textTransform: 'capitalize' }}>
                                         {evaluation.risk_reason?.replace(/_/g, ' ') || '—'}

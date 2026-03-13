@@ -17,8 +17,8 @@ import {
     updateDealRiskFields,
     createTaskForHighRisk,
     isDealOpen,
-    PIPELINE_MAP
 } from './hubspot';
+import { PIPELINE_MAP } from './mappings';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
 import { analyzeDealRisk } from './ai-analyzer';
 import { sendHighRiskAlert, sendScanSummary, isSlackConfigured } from './slack';
@@ -110,7 +110,7 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
             amount: props.hs_mrr ? parseFloat(props.hs_mrr) : (props.amount ? parseFloat(props.amount) : null),
             mrr: props.hs_mrr ? parseFloat(props.hs_mrr) : (props.mrr ? parseFloat(props.mrr) : null),
             stage: props.deal_stage_name__text_ || props.dealstage,
-            pipeline: props.pipeline ? (PIPELINE_MAP[props.pipeline] || props.pipeline) : null,
+            pipeline: props.pipeline || null,
             days_in_stage: hsDaysInStage,
             days_since_creation: daysSinceCreation,
             close_date: props.closedate,

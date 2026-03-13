@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 import { getEvaluationsForDeal } from '@/db/queries';
 import Link from 'next/link';
 import { RiskEvaluation, DealActivityMetrics } from '@/lib/types';
+import { PIPELINE_MAP, getNormalizedStage } from '@/lib/mappings';
 import { DealDetailClient } from './deal-detail-client';
 
 interface PageProps {
@@ -174,13 +175,13 @@ export default async function DealDetailPage({ params }: PageProps) {
                                             </div>
                                             <div>
                                                 <div className="detail-label">Stage</div>
-                                                <div className="detail-value" style={{ textTransform: 'capitalize' }}>
-                                                    {String(dealMeta.stage || '—').replace(/_/g, ' ')}
+                                                <div className="detail-value">
+                                                    {getNormalizedStage(dealMeta.stage as string, latest.pipeline)}
                                                 </div>
                                             </div>
                                             <div>
                                                 <div className="detail-label">Pipeline</div>
-                                                <div className="detail-value">{String(dealMeta.pipeline || '—')}</div>
+                                                <div className="detail-value">{PIPELINE_MAP[latest.pipeline as string] || String(dealMeta.pipeline || '—')}</div>
                                             </div>
                                             <div>
                                                 <div className="detail-label">Close Date</div>
