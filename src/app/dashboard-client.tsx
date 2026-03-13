@@ -226,6 +226,41 @@ export function DashboardView({
     const [filterCloseMin, setFilterCloseMin] = useState('');
     const [filterCloseMax, setFilterCloseMax] = useState('');
 
+    // Load filters from localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem('hs_deal_risk_filters');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed.pipeline) setFilterPipeline(parsed.pipeline);
+                if (parsed.risk) setFilterRisk(parsed.risk);
+                if (parsed.reason) setFilterReason(parsed.reason);
+                if (parsed.stage) setFilterStage(parsed.stage);
+                if (parsed.amountMin) setFilterAmountMin(parsed.amountMin);
+                if (parsed.amountMax) setFilterAmountMax(parsed.amountMax);
+                if (parsed.closeMin) setFilterCloseMin(parsed.closeMin);
+                if (parsed.closeMax) setFilterCloseMax(parsed.closeMax);
+            } catch (e) {
+                console.error('Failed to parse saved filters', e);
+            }
+        }
+    }, []);
+
+    // Save filters to localStorage
+    useEffect(() => {
+        const filters = {
+            pipeline: filterPipeline,
+            risk: filterRisk,
+            reason: filterReason,
+            stage: filterStage,
+            amountMin: filterAmountMin,
+            amountMax: filterAmountMax,
+            closeMin: filterCloseMin,
+            closeMax: filterCloseMax,
+        };
+        localStorage.setItem('hs_deal_risk_filters', JSON.stringify(filters));
+    }, [filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax]);
+
     // Filter evaluations client-side and normalize stages
     const filteredEvaluations = useMemo(() => {
         return evaluations.filter((e: RiskEvaluation) => {
@@ -526,9 +561,17 @@ export function DashboardView({
                         </thead>
                         <tbody>
                             {filteredEvaluations.map((evaluation: RiskEvaluation) => (
-                                <tr key={`${evaluation.deal_id}-${evaluation.id}`}>
+                                <tr 
+                                    key={`${evaluation.deal_id}-${evaluation.id}`}
+                                    className="clickable-row"
+                                    onClick={() => window.open(`/deals/${evaluation.deal_id}`, '_blank')}
+                                >
                                     <td className="deal-name">
-                                        <Link href={`/deals/${evaluation.deal_id}`}>
+                                        <Link 
+                                            href={`/deals/${evaluation.deal_id}`}
+                                            target="_blank"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
                                             {evaluation.deal_name || evaluation.deal_id}
                                         </Link>
                                     </td>
@@ -551,7 +594,10 @@ export function DashboardView({
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <button
                                                 className="btn btn-sm"
-                                                onClick={() => triggerDealScan(evaluation.deal_id)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    triggerDealScan(evaluation.deal_id);
+                                                }}
                                                 title="Re-run Scan"
                                                 disabled={actionLoading === evaluation.deal_id}
                                             >
@@ -563,6 +609,7 @@ export function DashboardView({
                                                 rel="noopener noreferrer"
                                                 className="btn btn-sm"
                                                 title="Open in HubSpot"
+                                                onClick={(e) => e.stopPropagation()}
                                             >
                                                 🔗
                                             </a>

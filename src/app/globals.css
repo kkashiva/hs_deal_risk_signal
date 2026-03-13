@@ -499,6 +499,14 @@ tr:hover td {
   background: var(--bg-card-hover);
 }
 
+tr.clickable-row {
+  cursor: pointer;
+}
+
+tr.clickable-row:hover td {
+  background: var(--bg-card-hover);
+}
+
 td.deal-name {
   color: var(--text-primary);
   font-weight: 500;
