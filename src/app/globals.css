@@ -332,7 +332,83 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  /* overflow: visible; allowed for modals */
+  overflow-x: auto;
+  position: relative;
+}
+
+/* --- Column Editor --- */
+
+.column-editor-container {
+  position: relative;
+}
+
+.column-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+  backdrop-filter: blur(20px);
+}
+
+.column-dropdown h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.column-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.column-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.column-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.column-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 12px 0 6px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.column-section-title:first-of-type {
+  margin-top: 0;
 }
 
 .table-header {
@@ -482,6 +558,32 @@ th {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid var(--border-color);
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+th.sortable:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+th .sort-icon {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: middle;
+  opacity: 0.5;
+}
+
+th.active-sort {
+  color: var(--accent);
+}
+
+th.active-sort .sort-icon {
+  opacity: 1;
 }
 
 td {

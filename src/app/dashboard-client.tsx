@@ -9,6 +9,69 @@ import Link from 'next/link';
 import { RiskEvaluation, RiskCounts } from '@/lib/types';
 import { PIPELINE_MAP, STAGE_MAP, getNormalizedStage } from '@/lib/mappings';
 
+const OPTIONAL_COLUMNS = [
+    { id: 'days_in_stage', label: 'Days in Stage', source: 'metadata' },
+    { id: 'days_since_creation', label: 'Days Created', source: 'metadata' },
+    { id: 'close_date', label: 'Close Date', source: 'metadata' },
+    { id: 'forecast_category', label: 'Forecast', source: 'metadata' },
+    { id: 'owner_id', label: 'Owner ID', source: 'metadata' },
+    { id: 'num_contacts', label: 'Contacts', source: 'metadata' },
+    { id: 'totalEmails', label: 'Emails', source: 'metrics' },
+    { id: 'totalMeetings', label: 'Meetings', source: 'metrics' },
+    { id: 'totalCalls', label: 'Calls', source: 'metrics' },
+    { id: 'totalNotes', label: 'Notes', source: 'metrics' },
+    { id: 'daysSinceLastActivity', label: 'Days Since Activity', source: 'metrics' },
+    { id: 'daysSinceLastMeeting', label: 'Days Since Meeting', source: 'metrics' },
+    { id: 'meetingNoShows', label: 'Meeting No Shows', source: 'metrics' },
+    { id: 'avgDaysBetweenActivities', label: 'Average Activity Gap', source: 'metrics' },
+    { id: 'avgEmailReplyTimeHours', label: 'Average Reply Time (Hours)', source: 'metrics' },
+    { id: 'avgDaysBetweenMeetings', label: 'Average Meeting Gap', source: 'metrics' },
+] as const;
+
+type SortConfig = {
+    key: string;
+    direction: 'asc' | 'desc';
+};
+
+function SortIcon({ active, direction }: { active: boolean, direction: 'asc' | 'desc' }) {
+    if (!active) return (
+        <span className="sort-icon">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 15l5 5 5-5M7 9l5-5 5 5" /></svg>
+        </span>
+    );
+    return (
+        <span className="sort-icon">
+            {direction === 'asc' ? (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 15l-6-6-6 6" /></svg>
+            ) : (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M6 9l6 6 6-6" /></svg>
+            )}
+        </span>
+    );
+}
+
+function SortableHeader({ label, sortKey, currentSort, onSort }: { label: string, sortKey: string, currentSort: SortConfig, onSort: (key: string) => void }) {
+    const active = currentSort.key === sortKey;
+    return (
+        <th 
+            className={`sortable ${active ? 'active-sort' : ''}`}
+            onClick={() => onSort(sortKey)}
+        >
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+                {label}
+                <SortIcon active={active} direction={currentSort.direction} />
+            </div>
+        </th>
+    );
+}
+
+function nextSort(current: SortConfig, key: string): SortConfig {
+    if (current.key === key) {
+        return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+    }
+    return { key, direction: 'desc' };
+}
+
 interface DashboardViewProps {
     evaluations: RiskEvaluation[];
     counts: RiskCounts;
@@ -43,8 +106,8 @@ function ConfidenceBar({ score }: { score: number }) {
     );
 }
 
-function formatAmount(amount: number | null): string {
-    if (!amount) return '—';
+function formatAmount(amount: number | null | undefined): string {
+    if (amount === null || amount === undefined) return '—';
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
@@ -225,9 +288,31 @@ export function DashboardView({
     const [filterAmountMax, setFilterAmountMax] = useState<string>('');
     const [filterCloseMin, setFilterCloseMin] = useState('');
     const [filterCloseMax, setFilterCloseMax] = useState('');
+    const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'evaluation_date', direction: 'desc' });
+    const [isColumnEditorOpen, setIsColumnEditorOpen] = useState(false);
+    const columnEditorRef = useRef<HTMLDivElement>(null);
 
-    // Load filters from localStorage
+    // Load columns, filters, and sorting from localStorage
     useEffect(() => {
+        const savedCols = localStorage.getItem('hs_deal_risk_visible_columns');
+        if (savedCols) {
+            try {
+                setVisibleColumns(JSON.parse(savedCols));
+            } catch (e) {
+                console.error('Failed to parse saved columns', e);
+            }
+        }
+
+        const savedSort = localStorage.getItem('hs_deal_risk_sort');
+        if (savedSort) {
+            try {
+                setSortConfig(JSON.parse(savedSort));
+            } catch (e) {
+                console.error('Failed to parse saved sort', e);
+            }
+        }
+
         const saved = localStorage.getItem('hs_deal_risk_filters');
         if (saved) {
             try {
@@ -261,9 +346,33 @@ export function DashboardView({
         localStorage.setItem('hs_deal_risk_filters', JSON.stringify(filters));
     }, [filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax]);
 
-    // Filter evaluations client-side and normalize stages
-    const filteredEvaluations = useMemo(() => {
-        return evaluations.filter((e: RiskEvaluation) => {
+    // Save columns and sort to localStorage
+    useEffect(() => {
+        localStorage.setItem('hs_deal_risk_visible_columns', JSON.stringify(visibleColumns));
+    }, [visibleColumns]);
+
+    useEffect(() => {
+        localStorage.setItem('hs_deal_risk_sort', JSON.stringify(sortConfig));
+    }, [sortConfig]);
+
+    // Close column editor on click outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (columnEditorRef.current && !columnEditorRef.current.contains(event.target as Node)) {
+                setIsColumnEditorOpen(false);
+            }
+        }
+        if (isColumnEditorOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isColumnEditorOpen]);
+
+    // Filter and Sort evaluations client-side and normalize stages
+    const filteredAndSortedEvaluations = useMemo(() => {
+        const filtered = evaluations.filter((e: RiskEvaluation) => {
             if (filterPipeline && e.pipeline !== filterPipeline) return false;
             if (filterRisk && e.risk_level !== filterRisk) return false;
             if (filterReason && e.risk_reason !== filterReason) return false;
@@ -287,7 +396,66 @@ export function DashboardView({
 
             return true;
         });
-    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax]);
+
+        // Sort
+        return [...filtered].sort((a, b) => {
+            const key = sortConfig.key;
+            let valA: any;
+            let valB: any;
+
+            // Handle specific keys or source lookups
+            const optionalCol = OPTIONAL_COLUMNS.find(c => c.id === key);
+            if (optionalCol) {
+                if (optionalCol.source === 'metadata') {
+                    valA = (a.deal_metadata as any)?.[key];
+                    valB = (b.deal_metadata as any)?.[key];
+                } else {
+                    valA = (a.engagement_metrics as any)?.[key];
+                    valB = (b.engagement_metrics as any)?.[key];
+                }
+            } else {
+                // Default columns
+                if (key === 'deal_name') {
+                    valA = a.deal_name;
+                    valB = b.deal_name;
+                } else if (key === 'deal_amount') {
+                    valA = a.deal_amount;
+                    valB = b.deal_amount;
+                } else if (key === 'stage') {
+                    valA = getNormalizedStage((a.deal_metadata as any)?.stage, a.pipeline);
+                    valB = getNormalizedStage((b.deal_metadata as any)?.stage, b.pipeline);
+                } else if (key === 'risk_level') {
+                    const levels = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+                    valA = levels[a.risk_level] || 0;
+                    valB = levels[b.risk_level] || 0;
+                } else if (key === 'evaluation_date') {
+                    valA = new Date(a.evaluation_date || 0).getTime();
+                    valB = new Date(b.evaluation_date || 0).getTime();
+                } else {
+                    valA = (a as any)[key];
+                    valB = (b as any)[key];
+                }
+            }
+
+            // Always push nulls/undefined to the bottom regardless of direction
+            const isNullA = valA === null || valA === undefined || valA === '—';
+            const isNullB = valB === null || valB === undefined || valB === '—';
+            if (isNullA && isNullB) return 0;
+            if (isNullA) return 1;
+            if (isNullB) return -1;
+
+            // Force numeric comparison for specific keys
+            const isNumeric = key === 'deal_amount' || key === 'confidence' || optionalCol?.source === 'metrics' || key === 'days_in_stage' || key === 'days_since_creation' || key === 'num_contacts';
+            if (isNumeric) {
+                valA = Number(valA);
+                valB = Number(valB);
+            }
+
+            if (valA === valB) return 0;
+            const comparison = valA < valB ? -1 : 1;
+            return sortConfig.direction === 'asc' ? comparison : -comparison;
+        });
+    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, sortConfig]);
 
     // Unique normalized stages for the filter dropdown
     const uniqueNormalizedStages = useMemo(() => {
@@ -440,6 +608,51 @@ export function DashboardView({
                             ✕ Clear Filters
                         </button>
                     )}
+                    <div className="column-editor-container" ref={columnEditorRef}>
+                        <button
+                            className="btn btn-sm"
+                            onClick={() => setIsColumnEditorOpen(!isColumnEditorOpen)}
+                        >
+                            ⚙️ Edit Columns
+                        </button>
+                        {isColumnEditorOpen && (
+                            <div className="column-dropdown">
+                                <h4>Visible Columns</h4>
+                                <div className="column-section-title">Metadata</div>
+                                <div className="column-list">
+                                    {OPTIONAL_COLUMNS.filter(c => c.source === 'metadata').map(col => (
+                                        <label key={col.id} className="column-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={visibleColumns.includes(col.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setVisibleColumns([...visibleColumns, col.id]);
+                                                    else setVisibleColumns(visibleColumns.filter(id => id !== col.id));
+                                                }}
+                                            />
+                                            {col.label}
+                                        </label>
+                                    ))}
+                                </div>
+                                <div className="column-section-title">Metrics</div>
+                                <div className="column-list">
+                                    {OPTIONAL_COLUMNS.filter(c => c.source === 'metrics').map(col => (
+                                        <label key={col.id} className="column-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={visibleColumns.includes(col.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) setVisibleColumns([...visibleColumns, col.id]);
+                                                    else setVisibleColumns(visibleColumns.filter(id => id !== col.id));
+                                                }}
+                                            />
+                                            {col.label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Filter Dropdowns */}
@@ -527,7 +740,7 @@ export function DashboardView({
 
                     {hasActiveFilters && (
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {filteredEvaluations.length} of {evaluations.length} deals
+                            {filteredAndSortedEvaluations.length} of {evaluations.length} deals
                         </span>
                     )}
                 </div>
@@ -538,7 +751,7 @@ export function DashboardView({
                         <h3>Setup Required</h3>
                         <p>{error}</p>
                     </div>
-                ) : filteredEvaluations.length === 0 ? (
+                ) : filteredAndSortedEvaluations.length === 0 ? (
                     <div className="empty-state">
                         <div className="empty-state-icon">📊</div>
                         <h3>{hasActiveFilters ? 'No matching deals' : 'No evaluations yet'}</h3>
@@ -548,19 +761,71 @@ export function DashboardView({
                     <table>
                         <thead>
                             <tr>
-                                <th>Deal Name</th>
-                                <th>Amount</th>
-                                <th>Stage</th>
-                                <th>Risk Level</th>
-                                <th>Primary Risk</th>
-                                <th>Confidence</th>
-                                <th>Escalation</th>
-                                <th>Last Scanned</th>
+                                <SortableHeader
+                                    label="Deal Name"
+                                    sortKey="deal_name"
+                                    currentSort={sortConfig}
+                                    onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                />
+                                <SortableHeader
+                                    label="Amount"
+                                    sortKey="deal_amount"
+                                    currentSort={sortConfig}
+                                    onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                />
+                                <SortableHeader
+                                    label="Stage"
+                                    sortKey="stage"
+                                    currentSort={sortConfig}
+                                    onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                />
+                                {visibleColumns.map(colId => {
+                                    const col = OPTIONAL_COLUMNS.find(c => c.id === colId);
+                                    return (
+                                        <SortableHeader
+                                            key={colId}
+                                            label={col?.label || colId}
+                                            sortKey={colId}
+                                            currentSort={sortConfig}
+                                            onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                        />
+                                    );
+                                })}
+                                <SortableHeader
+                                    label="Risk Level"
+                                    sortKey="risk_level"
+                                    currentSort={sortConfig}
+                                    onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                />
+                                <SortableHeader
+                                    label="Primary Risk"
+                                    sortKey="risk_reason"
+                                    currentSort={sortConfig}
+                                    onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                />
+                                <SortableHeader
+                                    label="Confidence"
+                                    sortKey="confidence"
+                                    currentSort={sortConfig}
+                                    onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                />
+                                <SortableHeader
+                                    label="Escalation"
+                                    sortKey="escalation_target"
+                                    currentSort={sortConfig}
+                                    onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                />
+                                <SortableHeader
+                                    label="Last Scanned"
+                                    sortKey="evaluation_date"
+                                    currentSort={sortConfig}
+                                    onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
+                                />
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredEvaluations.map((evaluation: RiskEvaluation) => (
+                            {filteredAndSortedEvaluations.map((evaluation: RiskEvaluation) => (
                                 <tr 
                                     key={`${evaluation.deal_id}-${evaluation.id}`}
                                     className="clickable-row"
@@ -577,6 +842,23 @@ export function DashboardView({
                                     </td>
                                     <td>{formatAmount(evaluation.deal_amount)}</td>
                                     <td style={{ fontSize: '12px' }}>{getNormalizedStage((evaluation.deal_metadata as Record<string, unknown>)?.stage as string, evaluation.pipeline) || '—'}</td>
+                                    
+                                    {visibleColumns.map(colId => {
+                                        const col = OPTIONAL_COLUMNS.find(c => c.id === colId);
+                                        let val: any = '—';
+                                        if (col?.source === 'metadata') {
+                                            val = (evaluation.deal_metadata as any)?.[col.id];
+                                        } else if (col?.source === 'metrics') {
+                                            val = (evaluation.engagement_metrics as any)?.[col.id];
+                                        }
+
+                                        if (val === null || val === undefined) val = '—';
+                                        else if (colId === 'close_date') val = new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                        else if (typeof val === 'number') val = val.toLocaleString();
+
+                                        return <td key={colId} style={{ fontSize: '12px' }}>{val}</td>;
+                                    })}
+
                                     <td><RiskBadge level={evaluation.risk_level} /></td>
                                     <td style={{ textTransform: 'capitalize' }}>
                                         {evaluation.risk_reason?.replace(/_/g, ' ') || '—'}
