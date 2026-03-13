@@ -257,15 +257,17 @@ export function DashboardView({
     // Unique normalized stages for the filter dropdown
     const uniqueNormalizedStages = useMemo(() => {
         const set = new Set<string>();
-        // Add all target mapping values to ensure they all appear in the dropdown
-        Object.values(STAGE_MAP).forEach(pipelineStages => {
-            Object.values(pipelineStages).forEach(stage => set.add(stage));
-        });
-        // Also add any stages from evaluations that might not be in the mapping
+        // Only add stages from the actual evaluations (which are already filtered to be open)
         evaluations.forEach(e => {
             const rawStage = (e.deal_metadata as Record<string, unknown>)?.stage as string | undefined;
             const normalized = getNormalizedStage(rawStage, e.pipeline);
-            if (normalized) set.add(normalized);
+            if (normalized) {
+                // Explicitly exclude closed stages just in case
+                const lower = normalized.toLowerCase();
+                if (!lower.includes('closed won') && !lower.includes('closed lost')) {
+                    set.add(normalized);
+                }
+            }
         });
         return Array.from(set).sort();
     }, [evaluations]);
