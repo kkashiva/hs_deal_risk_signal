@@ -84,11 +84,11 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
     // so they can't be crowded out by notes/calls
     const recentEmails = engagements
         .filter(e => e.type === 'EMAIL')
-        .slice(0, 5)
+        .slice(0, 10)
         .map(e => ({
             type: e.type,
             date: new Date(e.timestamp).toISOString().split('T')[0],
-            summary: (e.subject || e.body || '').substring(0, 500),
+            summary: (e.subject || e.body || '').substring(0, 2000),
         }));
 
     const recentOtherEngagements = engagements
@@ -138,7 +138,7 @@ async function processDeal(
         const riskInput = await buildRiskInput(deal);
 
         // Analyze with AI
-        const { result, provider, promptVersion } = await analyzeDealRisk(riskInput);
+        const { result, provider, promptVersion, dealAnalysis, emailAnalysis, transcriptAnalysis } = await analyzeDealRisk(riskInput);
 
         // Write back to HubSpot
         await updateDealRiskFields(deal.id, result);
@@ -162,6 +162,9 @@ async function processDeal(
                 is_deal_open: isOpen,
                 deal_metadata: riskInput.deal_metadata as unknown as Record<string, unknown>,
                 engagement_metrics: riskInput.engagement_metrics,
+                deal_analysis: dealAnalysis,
+                email_analysis: emailAnalysis,
+                transcript_analysis: transcriptAnalysis,
             });
         } catch (dbError) {
             console.error(`DB error for deal ${deal.id}:`, dbError);

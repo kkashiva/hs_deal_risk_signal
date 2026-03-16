@@ -58,4 +58,4 @@ export const EXCLUDED_STAGES = [
     'closedlost',
 ];
 
-export const PROMPT_VERSION = 'v1.1';
+export const PROMPT_VERSION = 'v2.0-langgraph';
