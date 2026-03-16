@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# temp testing scripts
+/scripts/test-email-fetch.ts
+/scripts/verify-scan.ts
+/scripts/check_deal.js

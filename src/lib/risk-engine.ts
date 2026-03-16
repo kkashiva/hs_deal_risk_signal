@@ -88,7 +88,7 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
         .map(e => ({
             type: e.type,
             date: new Date(e.timestamp).toISOString().split('T')[0],
-            summary: (e.subject || e.body || '').substring(0, 2000),
+            summary: `Subject: ${e.subject || 'N/A'}\nContent: ${e.body || 'N/A'}`.substring(0, 3000),
         }));
 
     const recentOtherEngagements = engagements
@@ -97,7 +97,7 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
         .map(e => ({
             type: e.type,
             date: new Date(e.timestamp).toISOString().split('T')[0],
-            summary: (e.subject || e.body || '').substring(0, 200),
+            summary: `Subject: ${e.subject || 'N/A'}\nContent: ${e.body || 'N/A'}`.substring(0, 500),
         }));
 
     const recentEngagements = [...recentEmails, ...recentOtherEngagements]

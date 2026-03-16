@@ -187,7 +187,7 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                         case 'emails':
                             record = await client.crm.objects.emails.basicApi.getById(
                                 objectId,
-                                ['hs_timestamp', 'hs_email_subject', 'hs_email_text', 'hs_email_direction']
+                                ['hs_timestamp', 'hs_email_subject', 'hs_email_text', 'hs_email_html', 'hs_email_direction']
                             );
                             break;
                         case 'notes':
@@ -216,7 +216,7 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                             type: engagementType,
                             timestamp: new Date(record.properties.hs_timestamp || record.createdAt).getTime(),
                             subject: record.properties.hs_email_subject || record.properties.hs_meeting_title || record.properties.hs_call_title || undefined,
-                            body: record.properties.hs_email_text || record.properties.hs_note_body || record.properties.hs_meeting_body || record.properties.hs_call_body || undefined,
+                            body: record.properties.hs_email_text || record.properties.hs_email_html || record.properties.hs_note_body || record.properties.hs_meeting_body || record.properties.hs_call_body || undefined,
                             ...(engagementType === 'EMAIL' && record.properties.hs_email_direction
                                 ? { direction: record.properties.hs_email_direction }
                                 : {}),
