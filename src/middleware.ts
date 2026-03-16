@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Paths that don't require authentication
-const PUBLIC_PATHS = ['/login', '/api/auth'];
+const PUBLIC_PATHS = ['/login', '/api/auth', '/api/cron'];
 const STATIC_PREFIXES = ['/_next', '/favicon.ico'];
 
 export function middleware(req: NextRequest) {
