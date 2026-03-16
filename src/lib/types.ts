@@ -136,6 +136,9 @@ export interface RiskEvaluation {
   is_deal_open?: boolean;
   deal_metadata?: Record<string, unknown> | null;
   engagement_metrics?: DealActivityMetrics | null;
+  deal_analysis?: string | null;
+  email_analysis?: string | null;
+  transcript_analysis?: string | null;
   created_at?: Date;
 }
 
