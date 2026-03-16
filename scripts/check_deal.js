@@ -1,5 +1,5 @@
 const { Client } = require('@hubspot/api-client');
-const client = new Client({ accessToken: 'pat-na1-79fca4c8-7b36-462a-9f34-ba2adfd031a0' });
+const client = new Client({ accessToken: process.env.HUBSPOT_ACCESS_TOKEN });
 
 async function check() {
     try {
