@@ -158,6 +158,47 @@ export default async function DealDetailPage({ params }: PageProps) {
                                         <span className="detail-value" style={{ fontSize: '12px' }}>{latest.model_used} ({latest.prompt_version})</span>
                                     </div>
                                 </div>
+
+                                {/* Shared Source Breakdown */}
+                                {(latest.deal_analysis || latest.email_analysis || latest.transcript_analysis) && (
+                                    <div className="analysis-sources-container">
+                                        <div className="analysis-sources-title">
+                                            🔍 Analysis Source Breakdown
+                                        </div>
+                                        <div className="analysis-sources-grid">
+                                            {latest.deal_analysis && (
+                                                <div className="analysis-source-card">
+                                                    <div className="analysis-source-header">
+                                                        <span>📂</span> Deal Metadata Analysis
+                                                    </div>
+                                                    <div className="analysis-source-content">
+                                                        {latest.deal_analysis}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {latest.email_analysis && (
+                                                <div className="analysis-source-card">
+                                                    <div className="analysis-source-header">
+                                                        <span>📧</span> Email Communication Analysis
+                                                    </div>
+                                                    <div className="analysis-source-content">
+                                                        {latest.email_analysis}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {latest.transcript_analysis && (
+                                                <div className="analysis-source-card">
+                                                    <div className="analysis-source-header">
+                                                        <span>🎙️</span> Call Transcript Analysis
+                                                    </div>
+                                                    <div className="analysis-source-content">
+                                                        {latest.transcript_analysis}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Data Grid: Metadata + Metrics */}
