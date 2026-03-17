@@ -220,6 +220,9 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                             ...(engagementType === 'EMAIL' && record.properties.hs_email_direction
                                 ? { direction: record.properties.hs_email_direction }
                                 : {}),
+                            ...(engagementType === 'MEETING' && record.properties.hs_meeting_outcome
+                                ? { meetingOutcome: record.properties.hs_meeting_outcome }
+                                : {}),
                         });
                     }
                 } catch {
@@ -241,18 +244,21 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
 export function computeActivityMetrics(engagements: HubSpotEngagement[]): DealActivityMetrics {
     const now = Date.now();
 
-    const emails = engagements.filter(e => e.type === 'EMAIL');
-    const meetings = engagements.filter(e => e.type === 'MEETING');
-    const calls = engagements.filter(e => e.type === 'CALL');
-    const notes = engagements.filter(e => e.type === 'NOTE');
+    // Filter for past engagements to avoid skewing metrics with future meetings/tasks
+    const pastEngagements = engagements.filter(e => e.timestamp <= now);
 
-    const mostRecent = engagements.length > 0 ? engagements[0].timestamp : now;
+    const emails = pastEngagements.filter(e => e.type === 'EMAIL');
+    const meetings = pastEngagements.filter(e => e.type === 'MEETING');
+    const calls = pastEngagements.filter(e => e.type === 'CALL');
+    const notes = pastEngagements.filter(e => e.type === 'NOTE');
+
+    const mostRecent = pastEngagements.length > 0 ? pastEngagements[0].timestamp : null;
     const lastMeeting = meetings.length > 0 ? meetings[0].timestamp : null;
 
     // Calculate avg days between activities
     let avgDaysBetween: number | null = null;
-    if (engagements.length >= 2) {
-        const sorted = engagements.map(e => e.timestamp).sort((a, b) => a - b);
+    if (pastEngagements.length >= 2) {
+        const sorted = pastEngagements.map(e => e.timestamp).sort((a, b) => a - b);
         const gaps = [];
         for (let i = 1; i < sorted.length; i++) {
             gaps.push((sorted[i] - sorted[i - 1]) / (1000 * 60 * 60 * 24));
@@ -260,11 +266,12 @@ export function computeActivityMetrics(engagements: HubSpotEngagement[]): DealAc
         avgDaysBetween = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
     }
 
-    // Count no-shows (meetings with outcome = 'NO_SHOW' or 'RESCHEDULED')
-    const noShows = meetings.filter(m => {
-        const body = (m.body || '').toLowerCase();
-        return body.includes('no show') || body.includes('no-show') || body.includes('cancelled');
-    }).length;
+    // Count no-shows using hs_meeting_outcome
+    // Outcomes: BUSY, COMPLETED, NO_SHOW, RESCHEDULED, CANCELED
+    const noShows = pastEngagements.filter(e =>
+        e.type === 'MEETING' &&
+        (e.meetingOutcome === 'NO_SHOW' || e.meetingOutcome === 'CANCELED' || e.meetingOutcome === 'RESCHEDULED')
+    ).length;
 
     // --- Reply Velocity (median hours between inbound → outbound emails) ---
     let avgEmailReplyTimeHours: number | null = null;
@@ -280,7 +287,9 @@ export function computeActivityMetrics(engagements: HubSpotEngagement[]): DealAc
             curr.direction !== 'FORWARDED_EMAIL'
         ) {
             const gapHours = (curr.timestamp - prev.timestamp) / (1000 * 60 * 60);
-            replyGapsHours.push(gapHours);
+            if (gapHours >= 0) { // Safety check
+                replyGapsHours.push(gapHours);
+            }
         }
     }
     if (replyGapsHours.length > 0) {
@@ -307,8 +316,8 @@ export function computeActivityMetrics(engagements: HubSpotEngagement[]): DealAc
         totalMeetings: meetings.length,
         totalCalls: calls.length,
         totalNotes: notes.length,
-        daysSinceLastActivity: Math.round((now - mostRecent) / (1000 * 60 * 60 * 24)),
-        daysSinceLastMeeting: lastMeeting ? Math.round((now - lastMeeting) / (1000 * 60 * 60 * 24)) : null,
+        daysSinceLastActivity: mostRecent ? Math.max(0, Math.round((now - mostRecent) / (1000 * 60 * 60 * 24))) : 0,
+        daysSinceLastMeeting: lastMeeting ? Math.max(0, Math.round((now - lastMeeting) / (1000 * 60 * 60 * 24))) : null,
         meetingNoShows: noShows,
         avgDaysBetweenActivities: avgDaysBetween,
         avgEmailReplyTimeHours,

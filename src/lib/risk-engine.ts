@@ -50,7 +50,7 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
     if (props.closedate) {
         const closeDate = new Date(props.closedate).getTime();
         if (closeDate < now) {
-            closeDateDrift = Math.round((now - closeDate) / (1000 * 60 * 60 * 24));
+            closeDateDrift = Math.max(0, Math.round((now - closeDate) / (1000 * 60 * 60 * 24)));
         }
     }
 
