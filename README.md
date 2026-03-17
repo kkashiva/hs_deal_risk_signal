@@ -11,6 +11,8 @@ The **Sales Deal Risk Engine** follows a multi-stage analysis pipeline built on 
 2. **Synthesis Node:** These summaries are combined with core deal context (Stage, Amount, etc.) to produce a final structured risk assessment.
 3. **Multi-LLM Routing:** Dynamic routing based on deal size and stage (e.g., Gemini for smaller deals, Claude for complex, high-value ones).
 
+![Multi Node LangGraph AI Agent](images/LangGraph_4node.png)
+
 The system aggregates signals from:
 * **Gong** call transcripts (processed via dedicated extraction prompt).
 * **HubSpot** deal metadata (Amount, MRR, Stage, Close Date Drift, Pipeline).
@@ -63,11 +65,23 @@ A Vercel cron job that:
 ### 4. Live Risk Dashboard
 A beautiful, interactive Next.js dashboard that displays summary metrics, sortable deal tables, and client-side filtering by Pipeline, Risk Level, and Deal Amount.
 
+![Deal Risk Dashboard Table](images/dashboard_table.png)
+*Deal Risk Dashboard - Users can filter and edit columns*
+
 ### 5. Deal Detail View
 A deep dive showing the current assessment, AI explanation, recommended action, and a full historical timeline of previous evaluations.
 
----
+![Deal Detail Top](images/deal_details_top.png)
+*Deal Detail - AI Explanation & Recommended Action*
 
+![Deal Detail Top](images/deal_details_mid.png)
+*Deal Detail - AI Analysis of Deal properties, Emails & Call Transcripts*
+
+![Deal Detail Top](images/deal_details_bottom.png)
+*Deal Detail - Historical Risk Trends*
+
+
+---
 ## Setup & Deployment
 
 ### 1. Database Setup
