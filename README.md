@@ -6,18 +6,15 @@ By the time a deal is marked "Closed Lost" in a CRM, intervention is no longer p
 ## Solution
 An AI-assisted system that continuously analyzes open deals to identify early risk signals and recommend corrective action before deals are lost.
 
-The **Sales Deal Risk Engine** aggregates signals from:
-* **Gong** call transcripts (last 1-2 calls)
-* **HubSpot** deal metadata (Amount, MRR, Stage, Close Date Drift, Pipeline, Forecast Category)
-* **Sales Activity** (Emails, Notes, Meetings, Calls, No-shows, cadence gaps)
+The **Sales Deal Risk Engine** follows a multi-stage analysis pipeline built on **LangGraph**:
+1. **Focused Analysis Nodes:** Each data source (Deal metadata, Emails, Gong transcripts) is processed in parallel by focused LLM prompts to extract concise summaries.
+2. **Synthesis Node:** These summaries are combined with core deal context (Stage, Amount, etc.) to produce a final structured risk assessment.
+3. **Multi-LLM Routing:** Dynamic routing based on deal size and stage (e.g., Gemini for smaller deals, Claude for complex, high-value ones).
 
-Using multi-LLM routing (Gemini for small deals, Claude for large/late-stage deals), the system evaluates the data against the MEDDPICC sales methodology and deal velocity patterns to output a structured JSON risk assessment.
-
-### Key Outputs:
-1. **Risk Classification:** `LOW`, `MEDIUM`, or `HIGH`
-2. **Primary Risk Reason:** e.g., `budget`, `timing`, `no_champion`, `competition`, `feature_gap`, `low_engagement`, `multithreading_gap`
-3. **Actionable Insights:** AI-generated explanation with evidence + a recommended specific next action for the AE.
-4. **Escalation Targets:** Flags deals that require Manager or Executive/Cofounder intervention.
+The system aggregates signals from:
+* **Gong** call transcripts (processed via dedicated extraction prompt).
+* **HubSpot** deal metadata (Amount, MRR, Stage, Close Date Drift, Pipeline).
+* **Sales Activity** (Full email threads analyzed for engagement sentiment and gaps).
 
 ---
 
@@ -32,9 +29,10 @@ Using multi-LLM routing (Gemini for small deals, Claude for large/late-stage dea
 
 Built as a serverless-native **Next.js (App Router)** application, designed for easy deployment on **Vercel**.
 
-* **Framework:** Next.js 16 (TypeScript, React Server Components)
+* **Framework:** Next.js 15+ (TypeScript, React Server Components)
+* **Orchestration:** **LangGraph** (`@langchain/langgraph`) for multi-node StateGraph pipelines.
 * **CRON:** Vercel Cron (Runs daily at 6 AM UTC)
-* **Database:** Vanilla PostgreSQL (`pg` library, no ORM) for storing historical `risk_evaluations` and `scan_runs`.
+* **Database:** Vanilla PostgreSQL (`pg` library) for historical `risk_evaluations` and node outputs.
 * **APIs & Integrations:**
   * `@hubspot/api-client`
   * Gong REST API (`axios`)
@@ -48,34 +46,38 @@ Built as a serverless-native **Next.js (App Router)** application, designed for 
 
 ## Features
 
-### 1. Password Authentication
-All pages and API routes are protected by a shared password set via the `AUTH_PASSWORD` environment variable. Unauthenticated users are redirected to `/login`. A **Logout** button is available in the nav. This is designed to be replaced with proper user auth (e.g. Google Sign-In) in a future iteration.
+### 1. Multi-Node AI Analysis
+The engine uses a deterministic flow to analyze different facets of a deal independently before synthesizing a final result. This reduces prompt "hallucination" and ensures high-fidelity extraction from long email threads and transcripts.
 
-### 2. Daily Scheduled Risk Scan (`/api/cron/risk-scan`)
-A Vercel cron job that fetches open deals across configured HubSpot pipelines, enriches them with activity/transcript data, and evaluates them using AI.
-* **Write-back to HubSpot:** Updates custom AI properties on the deal and creates a HubSpot Task for HIGH risk deals.
-* **Write to Database:** Stores the full evaluation to track prediction accuracy over time.
-* **Slack Alerts:** Pings the team with a summary of the scan and alerts leadership for high-value HIGH risk deals.
+### 2. Password Authentication
+All pages and API routes are protected by a shared password set via the `AUTH_PASSWORD` environment variable. Unauthenticated users are redirected to `/login`.
 
-### 3. Live Risk Dashboard
-A beautiful, interactive Next.js dashboard that displays:
-* Summary metrics (Total Scanned, High/Medium/Low Risk counts) with per-pipeline breakdowns.
-* A sortable table of all evaluated deals.
-* **Client-side filtering** by Pipeline, Risk Level, Primary Risk, Close Date range, and Deal Amount (Min/Max).
-* Manual trigger to run the risk scan on-demand.
+### 3. Daily Scheduled Risk Scan (`/api/cron/risk-scan`)
+A Vercel cron job that:
+* **Fetches & Enriches:** Pulls deals across pipelines, adding full activity/transcript context.
+* **Evaluates:** Runs the LangGraph pipeline to generate a structured JSON risk assessment.
+* **Persists:** Stores the final result AND intermediate node outputs (`deal_analysis`, `email_analysis`, `transcript_analysis`) for deep visibility.
+* **Write-back:** Updates HubSpot custom properties and creates Tasks for HIGH risk deals.
+* **Slack Alerts:** Pings the team with summaries and leadership alerts for high-value deals.
 
-### 4. Deal Detail View
-A deep dive into a specific deal showing the current risk assessment, AI explanation, recommended action, and a full historical timeline of previous evaluations to track how the deal's health has changed over time.
+### 4. Live Risk Dashboard
+A beautiful, interactive Next.js dashboard that displays summary metrics, sortable deal tables, and client-side filtering by Pipeline, Risk Level, and Deal Amount.
+
+### 5. Deal Detail View
+A deep dive showing the current assessment, AI explanation, recommended action, and a full historical timeline of previous evaluations.
 
 ---
 
 ## Setup & Deployment
 
 ### 1. Database Setup
-Create a PostgreSQL database (e.g., Neon or Supabase) and run the initialization migrations:
+Create a PostgreSQL database (e.g., Neon or Supabase) and run the migrations in order:
 ```bash
 psql $DATABASE_URL < src/db/migrations/001_init.sql
 psql $DATABASE_URL < src/db/migrations/002_add_pipeline.sql
+psql $DATABASE_URL < src/db/migrations/003_add_deal_context.sql
+psql $DATABASE_URL < src/db/migrations/004_add_is_deal_open.sql
+psql $DATABASE_URL < src/db/migrations/005_add_node_outputs.sql
 ```
 
 ### 2. Environment Variables

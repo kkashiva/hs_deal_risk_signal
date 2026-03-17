@@ -44,9 +44,12 @@ CRON_SECRET=your_secret
 # Create PostgreSQL database
 createdb hs_deal_risk
 
-# Run migrations
+# Run migrations in order
 psql hs_deal_risk < src/db/migrations/001_init.sql
 psql hs_deal_risk < src/db/migrations/002_add_pipeline.sql
+psql hs_deal_risk < src/db/migrations/003_add_deal_context.sql
+psql hs_deal_risk < src/db/migrations/004_add_is_deal_open.sql
+psql hs_deal_risk < src/db/migrations/005_add_node_outputs.sql
 ```
 
 5. **Start Development Server**
@@ -60,27 +63,29 @@ The app will run at http://localhost:3000
 hs_deal_risk_signal/
 ├── src/
 │   ├── app/                    # Next.js App Router pages & layouts
-│   │   ├── dashboard-client.tsx   # Main dashboard component (client-side filtering)
+│   │   ├── dashboard-client.tsx   # Main dashboard component
 │   │   ├── login/              # Authentication page
 │   │   ├── deal/               # Deal detail pages
 │   │   └── api/                # API routes
-│   │       ├── cron/           # Scheduled cron jobs
+│   │       ├── cron/           # Scheduled cron jobs (triggers risk-engine)
 │   │       ├── deals/          # Deal endpoints
-│   │       └── ...
 │   ├── db/                     # Database utilities
-│   │   ├── migrations/         # SQL migrations
+│   │   ├── migrations/         # SQL migrations (001-005)
 │   │   └── queries.ts          # Database query functions
-│   ├── lib/                    # Utility functions
-│   │   ├── hubspot.ts          # HubSpot API integration
-│   │   ├── gong.ts             # Gong API integration
-│   │   ├── gemini.ts           # Google Gemini integration
-│   │   ├── claude.ts           # Anthropic Claude integration
-│   │   └── slack.ts            # Slack webhooks
+│   ├── lib/                    # Core Logic & Integrations
+│   │   ├── ai-graph.ts         # NEW: LangGraph StateGraph pipeline logic
+│   │   ├── ai-analyzer.ts      # Bridge to LangGraph / multi-provider routing
+│   │   ├── risk-engine.ts      # Data orchestration (HubSpot -> AI -> DB/Slack)
+│   │   ├── hubspot.ts          # HubSpot API client
+│   │   ├── gong.ts             # Gong API client
+│   │   ├── mappings.ts         # Shared stage & pipeline mappings
+│   │   ├── types.ts            # Shared TypeScript interfaces
+│   │   └── slack.ts            # Slack notification logic
 │   └── styles/
-│       └── globals.css         # Global styles
+│       └── globals.css         # Visual design system
 ├── package.json
 ├── tsconfig.json
-└── vercel.json                 # Cron job configuration
+└── vercel.json                 # Vercel Cron configuration
 ```
 
 ## Code Style & Standards
