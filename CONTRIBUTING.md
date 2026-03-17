@@ -6,6 +6,25 @@ Thank you for your interest in contributing! We welcome contributions of all kin
 
 This project is committed to fostering an inclusive and welcoming community. Please be respectful, constructive, and supportive when interacting with other contributors.
 
+## Contribution Workflow
+1. Create an issue or [find an existing open issue](https://github.com/kkashiva/hs_deal_risk_signal/issues). Look for issues with labels 'good first issue', 'help wanted'.
+2. Comment on the issue to express interest and ask to assign ownership if you're confident of implementation plan.
+3. Fork the repository: Click the 'Fork' button on the top right corner of the repository page.
+4. Create a feature branch. Create a new branch for your feature or bug fix:
+    ```bash
+    git checkout -b my-new-feature
+    ```
+5. Make your changes: Implement your feature or fix the bug.
+6. Commit your changes: Write meaningful commit messages and commit your changes
+    ```bash
+    git commit -m 'Added feature which does XYZ'
+    ```
+7. Push to the branch: Push your changes to your forked repository
+    ```bash
+    git push origin my-new-feature
+    ```
+8. Create a pull request: Go to the original repository and click on 'New Pull Request'. Select your feature branch for the comparison and submit the pull request.
+
 ## Getting Started
 
 ### Prerequisites
@@ -106,24 +125,6 @@ hs_deal_risk_signal/
 - Avoid inline styles: Keep styling in CSS files or Tailwind
 - Dark Mode: The app uses a dark theme; maintain consistency
 
-## Contribution Workflow
-1. Create an Issue or Find One. Look for issues with labels 'good first issue', 'help wanted'.
-2. Comment on the issue to express interest and ask to assign ownership if you're confident of implementation plan.
-3. Fork the repository: Click the 'Fork' button on the top right corner of the repository page.
-4. Create a feature branch. Create a new branch for your feature or bug fix:
-    ```bash
-    git checkout -b my-new-feature
-    ```
-5. Make your changes: Implement your feature or fix the bug.
-6. Commit your changes: Write meaningful commit messages and commit your changes
-    ```bash
-    git commit -m 'Added feature which does XYZ'
-    ```
-7. Push to the branch: Push your changes to your forked repository
-    ```bash
-    git push origin my-new-feature
-    ```
-8. Create a pull request: Go to the original repository and click on 'New Pull Request'. Select your feature branch for the comparison and submit the pull request.
 
 Thank you for contributing!
 
