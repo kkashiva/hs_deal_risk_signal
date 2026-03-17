@@ -32,6 +32,7 @@ export interface HubSpotEngagement {
   subject?: string;
   body?: string;
   direction?: 'INCOMING_EMAIL' | 'FORWARDED_EMAIL' | string; // populated for emails
+  meetingOutcome?: string; // populated for meetings
   metadata?: Record<string, unknown>;
 }
 
