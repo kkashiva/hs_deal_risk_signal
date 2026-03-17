@@ -12,6 +12,7 @@ The **Sales Deal Risk Engine** follows a multi-stage analysis pipeline built on 
 3. **Multi-LLM Routing:** Dynamic routing based on deal size and stage (e.g., Gemini for smaller deals, Claude for complex, high-value ones).
 
 ![Multi Node LangGraph AI Agent](images/LangGraph_4node.png)
+*Fig.1 Multi node LangGraph AI agent*
 
 The system aggregates signals from:
 * **Gong** call transcripts (processed via dedicated extraction prompt).
@@ -48,37 +49,41 @@ Built as a serverless-native **Next.js (App Router)** application, designed for 
 
 ## Features
 
-### 1. Multi-Node AI Analysis
-The engine uses a deterministic flow to analyze different facets of a deal independently before synthesizing a final result. This reduces prompt "hallucination" and ensures high-fidelity extraction from long email threads and transcripts.
+### 1. Pipeline Risk Dashboard
+A beautiful, interactive Next.js dashboard that displays summary metrics, sortable deal tables, and client-side filtering by Pipeline, Risk Level, and Deal Amount.
 
-### 2. Password Authentication
+![Deal Risk Dashboard Table](images/dashboard_table.png)
+*Fig.2 Deal Risk Dashboard - Users can filter and edit columns*
+<br><br>
+
+
+### 2. Deal Risk Analysis and Recommendations
+A deep dive showing the current assessment, AI explanation, recommended action, and a full historical timeline of previous evaluations.
+
+![Deal Detail Top](images/deal_details_top.png)
+*Fig.3 Deal Detail - AI Risk Evaluation & Recommended Action*
+<br><br>
+
+![Deal Detail Top](images/deal_details_mid.png)
+*Fig.4 Deal Detail - Detailed analysis of Deal properties, Emails & Meeting Transcripts*
+<br><br>
+
+![Deal Detail Top](images/deal_details_bottom.png)
+*Fig. 5 Deal Detail - Historical Risk Trends*
+<br><br>
+
+The engine uses a multi-node LangGraph architecture to analyze different attributes of each deal, then outputs a final result. This reduces prompt "hallucination" and ensures high-fidelity extraction from long email threads and transcripts.
+
+### 3. Password Authentication
 All pages and API routes are protected by a shared password set via the `AUTH_PASSWORD` environment variable. Unauthenticated users are redirected to `/login`.
 
-### 3. Daily Scheduled Risk Scan (`/api/cron/risk-scan`)
+### 4. Daily Scheduled Risk Scan (`/api/cron/risk-scan`)
 A Vercel cron job that:
 * **Fetches & Enriches:** Pulls deals across pipelines, adding full activity/transcript context.
 * **Evaluates:** Runs the LangGraph pipeline to generate a structured JSON risk assessment.
 * **Persists:** Stores the final result AND intermediate node outputs (`deal_analysis`, `email_analysis`, `transcript_analysis`) for deep visibility.
 * **Write-back:** Updates HubSpot custom properties and creates Tasks for HIGH risk deals.
 * **Slack Alerts:** Pings the team with summaries and leadership alerts for high-value deals.
-
-### 4. Live Risk Dashboard
-A beautiful, interactive Next.js dashboard that displays summary metrics, sortable deal tables, and client-side filtering by Pipeline, Risk Level, and Deal Amount.
-
-![Deal Risk Dashboard Table](images/dashboard_table.png)
-*Deal Risk Dashboard - Users can filter and edit columns*
-
-### 5. Deal Detail View
-A deep dive showing the current assessment, AI explanation, recommended action, and a full historical timeline of previous evaluations.
-
-![Deal Detail Top](images/deal_details_top.png)
-*Deal Detail - AI Explanation & Recommended Action*
-
-![Deal Detail Top](images/deal_details_mid.png)
-*Deal Detail - AI Analysis of Deal properties, Emails & Call Transcripts*
-
-![Deal Detail Top](images/deal_details_bottom.png)
-*Deal Detail - Historical Risk Trends*
 
 
 ---
