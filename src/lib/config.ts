@@ -39,7 +39,7 @@ export function getConfig(): AppConfig {
             webhookUrl: optionalEnv('SLACK_WEBHOOK_URL', ''),
         },
         cronSecret: requireEnv('CRON_SECRET'),
-        mrrRoutingThreshold: parseInt(optionalEnv('MRR_ROUTING_THRESHOLD', '1200'), 10),
+        mrrRoutingThreshold: parseInt(optionalEnv('MRR_ROUTING_THRESHOLD', '10000'), 10),
         highRiskDealValueThreshold: parseInt(optionalEnv('HIGH_RISK_DEAL_VALUE_THRESHOLD', '10000'), 10),
     };
 }
