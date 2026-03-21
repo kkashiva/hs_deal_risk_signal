@@ -336,6 +336,133 @@ body {
   position: relative;
 }
 
+/* --- View Tabs (browser-tab style) --- */
+
+.view-tabs-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 12px 16px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.view-tabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.view-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px 8px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  border-bottom: none;
+  position: relative;
+  top: 1px;
+  background: transparent;
+}
+
+.view-tab:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.view-tab.active {
+  color: var(--text-primary);
+  background: var(--accent-bg);
+  border-color: var(--border-color);
+  border-bottom-color: var(--bg-card);
+  font-weight: 600;
+  box-shadow: 0 -2px 8px rgba(99, 102, 241, 0.1);
+}
+
+.view-tab-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.view-tab:hover .view-tab-close {
+  opacity: 0.6;
+}
+
+.view-tab-close:hover {
+  opacity: 1 !important;
+  background: rgba(255, 77, 106, 0.15);
+  color: var(--risk-high);
+}
+
+.view-tab-name-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  width: 100px;
+  outline: none;
+  padding: 0 0 1px;
+}
+
+.view-tab-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-bottom: 0;
+  position: relative;
+  top: 1px;
+}
+
+.view-tab-add:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.view-tab-add:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 /* --- Column Editor --- */
 
 .column-editor-container {

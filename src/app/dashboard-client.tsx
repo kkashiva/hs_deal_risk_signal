@@ -4,10 +4,24 @@
 // Dashboard Client — Filters, Table, Scan Trigger
 // ============================================================
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { RiskEvaluation, RiskCounts } from '@/lib/types';
 import { PIPELINE_MAP, STAGE_MAP, getNormalizedStage } from '@/lib/mappings';
+import type {
+    DashboardView,
+    DashboardViewsState,
+    ViewFilters,
+    ViewSort,
+} from '@/lib/views';
+import {
+    MAX_VIEWS,
+    loadViews,
+    saveViews,
+    createBlankView,
+    createDefaultFilters,
+    createDefaultSort,
+} from '@/lib/views';
 
 const OPTIONAL_COLUMNS = [
     { id: 'days_in_stage', label: 'Days in Stage', source: 'metadata' },
@@ -280,80 +294,118 @@ export function DashboardView({
     const [scanning, setScanning] = useState(false);
     const [scanResult, setScanResult] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [filterPipeline, setFilterPipeline] = useState('');
-    const [filterRisk, setFilterRisk] = useState('');
-    const [filterReason, setFilterReason] = useState('');
-    const [filterStage, setFilterStage] = useState('');
-    const [filterAmountMin, setFilterAmountMin] = useState<string>('');
-    const [filterAmountMax, setFilterAmountMax] = useState<string>('');
-    const [filterCloseMin, setFilterCloseMin] = useState('');
-    const [filterCloseMax, setFilterCloseMax] = useState('');
-    const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
-    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'evaluation_date', direction: 'desc' });
     const [isColumnEditorOpen, setIsColumnEditorOpen] = useState(false);
     const columnEditorRef = useRef<HTMLDivElement>(null);
 
-    // Load columns, filters, and sorting from localStorage
+    // ---- Views state ----
+    const [viewsState, setViewsState] = useState<DashboardViewsState | null>(null);
+    const [editingViewId, setEditingViewId] = useState<string | null>(null);
+    const [editingName, setEditingName] = useState('');
+    const renameInputRef = useRef<HTMLInputElement>(null);
+
+    // Load views from localStorage (with legacy migration)
     useEffect(() => {
-        const savedCols = localStorage.getItem('hs_deal_risk_visible_columns');
-        if (savedCols) {
-            try {
-                setVisibleColumns(JSON.parse(savedCols));
-            } catch (e) {
-                console.error('Failed to parse saved columns', e);
-            }
-        }
-
-        const savedSort = localStorage.getItem('hs_deal_risk_sort');
-        if (savedSort) {
-            try {
-                setSortConfig(JSON.parse(savedSort));
-            } catch (e) {
-                console.error('Failed to parse saved sort', e);
-            }
-        }
-
-        const saved = localStorage.getItem('hs_deal_risk_filters');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (parsed.pipeline) setFilterPipeline(parsed.pipeline);
-                if (parsed.risk) setFilterRisk(parsed.risk);
-                if (parsed.reason) setFilterReason(parsed.reason);
-                if (parsed.stage) setFilterStage(parsed.stage);
-                if (parsed.amountMin) setFilterAmountMin(parsed.amountMin);
-                if (parsed.amountMax) setFilterAmountMax(parsed.amountMax);
-                if (parsed.closeMin) setFilterCloseMin(parsed.closeMin);
-                if (parsed.closeMax) setFilterCloseMax(parsed.closeMax);
-            } catch (e) {
-                console.error('Failed to parse saved filters', e);
-            }
-        }
+        setViewsState(loadViews());
     }, []);
 
-    // Save filters to localStorage
+    // Persist views to localStorage on every change
     useEffect(() => {
-        const filters = {
-            pipeline: filterPipeline,
-            risk: filterRisk,
-            reason: filterReason,
-            stage: filterStage,
-            amountMin: filterAmountMin,
-            amountMax: filterAmountMax,
-            closeMin: filterCloseMin,
-            closeMax: filterCloseMax,
-        };
-        localStorage.setItem('hs_deal_risk_filters', JSON.stringify(filters));
-    }, [filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax]);
+        if (viewsState) saveViews(viewsState);
+    }, [viewsState]);
 
-    // Save columns and sort to localStorage
+    // Focus rename input when editing
     useEffect(() => {
-        localStorage.setItem('hs_deal_risk_visible_columns', JSON.stringify(visibleColumns));
-    }, [visibleColumns]);
+        if (editingViewId && renameInputRef.current) {
+            renameInputRef.current.focus();
+            renameInputRef.current.select();
+        }
+    }, [editingViewId]);
 
-    useEffect(() => {
-        localStorage.setItem('hs_deal_risk_sort', JSON.stringify(sortConfig));
-    }, [sortConfig]);
+    // ---- Derived active view ----
+    const activeView = useMemo(() => {
+        if (!viewsState) return null;
+        return viewsState.views.find(v => v.id === viewsState.activeViewId) || viewsState.views[0];
+    }, [viewsState]);
+
+    // Convenience accessors
+    const filterPipeline = activeView?.filters.pipeline ?? '';
+    const filterRisk = activeView?.filters.risk ?? '';
+    const filterReason = activeView?.filters.reason ?? '';
+    const filterStage = activeView?.filters.stage ?? '';
+    const filterAmountMin = activeView?.filters.amountMin ?? '';
+    const filterAmountMax = activeView?.filters.amountMax ?? '';
+    const filterCloseMin = activeView?.filters.closeMin ?? '';
+    const filterCloseMax = activeView?.filters.closeMax ?? '';
+    const visibleColumns = activeView?.columns ?? [];
+    const sortConfig: SortConfig = activeView?.sort ?? { key: 'evaluation_date', direction: 'desc' };
+
+    // ---- View mutation helpers ----
+    const updateActiveView = useCallback((updater: (view: DashboardView) => DashboardView) => {
+        setViewsState(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                views: prev.views.map(v =>
+                    v.id === prev.activeViewId ? updater(v) : v
+                ),
+            };
+        });
+    }, []);
+
+    const setFilterPipeline = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, pipeline: val } }));
+    const setFilterRisk = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, risk: val } }));
+    const setFilterReason = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, reason: val } }));
+    const setFilterStage = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, stage: val } }));
+    const setFilterAmountMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMin: val } }));
+    const setFilterAmountMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMax: val } }));
+    const setFilterCloseMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, closeMin: val } }));
+    const setFilterCloseMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, closeMax: val } }));
+    const setVisibleColumns = (cols: string[]) => updateActiveView(v => ({ ...v, columns: cols }));
+    const setSortConfig = (s: SortConfig) => updateActiveView(v => ({ ...v, sort: s }));
+
+    // ---- View CRUD ----
+    const switchView = (id: string) => {
+        setViewsState(prev => prev ? { ...prev, activeViewId: id } : prev);
+    };
+
+    const addView = () => {
+        setViewsState(prev => {
+            if (!prev || prev.views.length >= MAX_VIEWS) return prev;
+            const newView = createBlankView(`View ${prev.views.length + 1}`);
+            return { views: [...prev.views, newView], activeViewId: newView.id };
+        });
+    };
+
+    const deleteView = (id: string) => {
+        setViewsState(prev => {
+            if (!prev || prev.views.length <= 1) return prev;
+            const remaining = prev.views.filter(v => v.id !== id);
+            const newActive = prev.activeViewId === id ? remaining[0].id : prev.activeViewId;
+            return { views: remaining, activeViewId: newActive };
+        });
+    };
+
+    const startRenaming = (id: string, currentName: string) => {
+        setEditingViewId(id);
+        setEditingName(currentName);
+    };
+
+    const commitRename = () => {
+        if (!editingViewId) return;
+        const trimmed = editingName.trim();
+        if (trimmed) {
+            setViewsState(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    views: prev.views.map(v =>
+                        v.id === editingViewId ? { ...v, name: trimmed } : v
+                    ),
+                };
+            });
+        }
+        setEditingViewId(null);
+    };
 
     // Close column editor on click outside
     useEffect(() => {
@@ -587,8 +639,61 @@ export function DashboardView({
                 )}
             </div>
 
-            {/* Deals Table */}
+            {/* Deals Table — with View Tabs */}
             <div className="table-container">
+                {/* View Tabs */}
+                {viewsState && (
+                    <div className="view-tabs-bar">
+                        {viewsState.views.map(view => (
+                            <div
+                                key={view.id}
+                                className={`view-tab ${view.id === viewsState.activeViewId ? 'active' : ''}`}
+                                onClick={() => switchView(view.id)}
+                                onDoubleClick={() => startRenaming(view.id, view.name)}
+                                title="Double-click to rename"
+                            >
+                                {editingViewId === view.id ? (
+                                    <input
+                                        ref={renameInputRef}
+                                        className="view-tab-name-input"
+                                        value={editingName}
+                                        onChange={e => setEditingName(e.target.value)}
+                                        onBlur={commitRename}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter') commitRename();
+                                            if (e.key === 'Escape') setEditingViewId(null);
+                                        }}
+                                        onClick={e => e.stopPropagation()}
+                                        maxLength={24}
+                                    />
+                                ) : (
+                                    <span className="view-tab-name">{view.name}</span>
+                                )}
+                                {viewsState.views.length > 1 && (
+                                    <button
+                                        className="view-tab-close"
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            deleteView(view.id);
+                                        }}
+                                        title="Delete view"
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                        <button
+                            className="view-tab-add"
+                            onClick={addView}
+                            disabled={viewsState.views.length >= MAX_VIEWS}
+                            title={viewsState.views.length >= MAX_VIEWS ? `Max ${MAX_VIEWS} views` : 'Add new view'}
+                        >
+                            +
+                        </button>
+                    </div>
+                )}
+
                 <div className="table-header">
                     <h2>Deal Risk Evaluations</h2>
                     {hasActiveFilters && (
