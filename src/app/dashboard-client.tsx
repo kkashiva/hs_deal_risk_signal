@@ -11,16 +11,12 @@ import { PIPELINE_MAP, STAGE_MAP, getNormalizedStage } from '@/lib/mappings';
 import type {
     DashboardView,
     DashboardViewsState,
-    ViewFilters,
-    ViewSort,
 } from '@/lib/views';
 import {
     MAX_VIEWS,
     loadViews,
     saveViews,
     createBlankView,
-    createDefaultFilters,
-    createDefaultSort,
 } from '@/lib/views';
 
 const OPTIONAL_COLUMNS = [
