@@ -511,7 +511,7 @@ export function DashboardView({
         let high = 0, medium = 0, low = 0;
         for (const e of filteredAndSortedEvaluations) {
             const level = e.risk_level?.toLowerCase() as 'high' | 'medium' | 'low';
-            const pipeline = e.pipeline;
+            const pipeline = e.pipeline ?? 'unknown';
             if (level === 'high') high++;
             else if (level === 'medium') medium++;
             else if (level === 'low') low++;
