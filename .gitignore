@@ -46,3 +46,6 @@ next-env.d.ts
 
 #agent skills
 /agents/skills/*
+
+# claude
+CLAUDE.md
