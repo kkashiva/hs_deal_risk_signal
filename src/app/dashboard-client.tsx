@@ -505,6 +505,24 @@ export function DashboardView({
         });
     }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, sortConfig]);
 
+    // Derive counts from the currently filtered evaluations so summary cards reflect active filters/view
+    const filteredCounts = useMemo((): RiskCounts => {
+        const breakdown: RiskCounts['pipelineBreakdown'] = { total: {}, high: {}, medium: {}, low: {} };
+        let high = 0, medium = 0, low = 0;
+        for (const e of filteredAndSortedEvaluations) {
+            const level = e.risk_level?.toLowerCase() as 'high' | 'medium' | 'low';
+            const pipeline = e.pipeline;
+            if (level === 'high') high++;
+            else if (level === 'medium') medium++;
+            else if (level === 'low') low++;
+            breakdown.total[pipeline] = (breakdown.total[pipeline] || 0) + 1;
+            if (level === 'high' || level === 'medium' || level === 'low') {
+                breakdown[level][pipeline] = (breakdown[level][pipeline] || 0) + 1;
+            }
+        }
+        return { total: filteredAndSortedEvaluations.length, high, medium, low, pipelineBreakdown: breakdown };
+    }, [filteredAndSortedEvaluations]);
+
     // Unique normalized stages for the filter dropdown
     const uniqueNormalizedStages = useMemo(() => {
         const set = new Set<string>();
@@ -590,32 +608,32 @@ export function DashboardView({
                     onClick={() => setFilterRisk('')}
                 >
                     <div className="summary-card-label">Total Deals Scanned</div>
-                    <div className="summary-card-value">{counts.total}</div>
-                    <PipelineBreakdown breakdown={counts.pipelineBreakdown.total} />
+                    <div className="summary-card-value">{filteredCounts.total}</div>
+                    <PipelineBreakdown breakdown={filteredCounts.pipelineBreakdown.total} />
                 </div>
                 <div
                     className={`summary-card high ${filterRisk === 'HIGH' ? 'active' : ''}`}
                     onClick={() => toggleRiskFilter('HIGH')}
                 >
                     <div className="summary-card-label">High Risk</div>
-                    <div className="summary-card-value">{counts.high}</div>
-                    <PipelineBreakdown breakdown={counts.pipelineBreakdown.high} />
+                    <div className="summary-card-value">{filteredCounts.high}</div>
+                    <PipelineBreakdown breakdown={filteredCounts.pipelineBreakdown.high} />
                 </div>
                 <div
                     className={`summary-card medium ${filterRisk === 'MEDIUM' ? 'active' : ''}`}
                     onClick={() => toggleRiskFilter('MEDIUM')}
                 >
                     <div className="summary-card-label">Medium Risk</div>
-                    <div className="summary-card-value">{counts.medium}</div>
-                    <PipelineBreakdown breakdown={counts.pipelineBreakdown.medium} />
+                    <div className="summary-card-value">{filteredCounts.medium}</div>
+                    <PipelineBreakdown breakdown={filteredCounts.pipelineBreakdown.medium} />
                 </div>
                 <div
                     className={`summary-card low ${filterRisk === 'LOW' ? 'active' : ''}`}
                     onClick={() => toggleRiskFilter('LOW')}
                 >
                     <div className="summary-card-label">Low Risk</div>
-                    <div className="summary-card-value">{counts.low}</div>
-                    <PipelineBreakdown breakdown={counts.pipelineBreakdown.low} />
+                    <div className="summary-card-value">{filteredCounts.low}</div>
+                    <PipelineBreakdown breakdown={filteredCounts.pipelineBreakdown.low} />
                 </div>
             </div>
 
