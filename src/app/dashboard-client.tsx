@@ -24,7 +24,7 @@ const OPTIONAL_COLUMNS = [
     { id: 'days_since_creation', label: 'Days Created', source: 'metadata' },
     { id: 'close_date', label: 'Close Date', source: 'metadata' },
     { id: 'forecast_category', label: 'Forecast', source: 'metadata' },
-    { id: 'owner_id', label: 'Owner ID', source: 'metadata' },
+    { id: 'owner_name', label: 'Owner', source: 'direct' },
     { id: 'num_contacts', label: 'Contacts', source: 'metadata' },
     { id: 'totalEmails', label: 'Emails', source: 'metrics' },
     { id: 'totalMeetings', label: 'Meetings', source: 'metrics' },
@@ -88,6 +88,7 @@ interface DashboardViewProps {
     pipelines: string[];
     riskReasons: string[];
     stages: string[];
+    owners: string[];
     error: string | null;
 }
 
@@ -285,6 +286,7 @@ export function DashboardView({
     pipelines,
     riskReasons,
     stages,
+    owners,
     error,
 }: DashboardViewProps) {
     const [scanning, setScanning] = useState(false);
@@ -328,6 +330,7 @@ export function DashboardView({
     const filterRisk = activeView?.filters.risk ?? '';
     const filterReason = activeView?.filters.reason ?? '';
     const filterStage = activeView?.filters.stage ?? '';
+    const filterOwner = activeView?.filters.owner ?? '';
     const filterAmountMin = activeView?.filters.amountMin ?? '';
     const filterAmountMax = activeView?.filters.amountMax ?? '';
     const filterCloseMin = activeView?.filters.closeMin ?? '';
@@ -352,6 +355,7 @@ export function DashboardView({
     const setFilterRisk = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, risk: val } }));
     const setFilterReason = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, reason: val } }));
     const setFilterStage = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, stage: val } }));
+    const setFilterOwner = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, owner: val } }));
     const setFilterAmountMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMin: val } }));
     const setFilterAmountMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMax: val } }));
     const setFilterCloseMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, closeMin: val } }));
@@ -429,6 +433,8 @@ export function DashboardView({
             const normalizedStage = getNormalizedStage(rawStage, e.pipeline);
             if (filterStage && normalizedStage !== filterStage) return false;
 
+            if (filterOwner && e.owner_name !== filterOwner) return false;
+
             const amount = e.deal_amount || 0;
             if (filterAmountMin && amount < Number(filterAmountMin)) return false;
             if (filterAmountMax && amount > Number(filterAmountMax)) return false;
@@ -454,7 +460,10 @@ export function DashboardView({
             // Handle specific keys or source lookups
             const optionalCol = OPTIONAL_COLUMNS.find(c => c.id === key);
             if (optionalCol) {
-                if (optionalCol.source === 'metadata') {
+                if (optionalCol.source === 'direct') {
+                    valA = (a as any)?.[key];
+                    valB = (b as any)?.[key];
+                } else if (optionalCol.source === 'metadata') {
                     valA = (a.deal_metadata as any)?.[key];
                     valB = (b.deal_metadata as any)?.[key];
                 } else {
@@ -503,7 +512,7 @@ export function DashboardView({
             const comparison = valA < valB ? -1 : 1;
             return sortConfig.direction === 'asc' ? comparison : -comparison;
         });
-    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, sortConfig]);
+    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterOwner, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, sortConfig]);
 
     // Derive counts from the currently filtered evaluations so summary cards reflect active filters/view
     const filteredCounts = useMemo((): RiskCounts => {
@@ -589,7 +598,7 @@ export function DashboardView({
         }
     }
 
-    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax;
+    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterOwner || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax;
 
     function toggleRiskFilter(level: string) {
         if (filterRisk === level) {
@@ -718,6 +727,7 @@ export function DashboardView({
                                 setFilterRisk('');
                                 setFilterReason('');
                                 setFilterStage('');
+                                setFilterOwner('');
                                 setFilterAmountMin('');
                                 setFilterAmountMax('');
                                 setFilterCloseMin('');
@@ -739,7 +749,7 @@ export function DashboardView({
                                 <h4>Visible Columns</h4>
                                 <div className="column-section-title">Metadata</div>
                                 <div className="column-list">
-                                    {OPTIONAL_COLUMNS.filter(c => c.source === 'metadata').map(col => (
+                                    {OPTIONAL_COLUMNS.filter(c => c.source === 'metadata' || c.source === 'direct').map(col => (
                                         <label key={col.id} className="column-item">
                                             <input
                                                 type="checkbox"
@@ -819,6 +829,17 @@ export function DashboardView({
                         <option value="">All Stages</option>
                         {uniqueNormalizedStages.map(s => (
                             <option key={s} value={s}>{s}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        className="filter-select"
+                        value={filterOwner}
+                        onChange={(e) => setFilterOwner(e.target.value)}
+                    >
+                        <option value="">All Owners</option>
+                        {owners.map(o => (
+                            <option key={o} value={o}>{o}</option>
                         ))}
                     </select>
 
@@ -965,7 +986,9 @@ export function DashboardView({
                                     {visibleColumns.map(colId => {
                                         const col = OPTIONAL_COLUMNS.find(c => c.id === colId);
                                         let val: any = '—';
-                                        if (col?.source === 'metadata') {
+                                        if (col?.source === 'direct') {
+                                            val = (evaluation as any)?.[col.id];
+                                        } else if (col?.source === 'metadata') {
                                             val = (evaluation.deal_metadata as any)?.[col.id];
                                         } else if (col?.source === 'metrics') {
                                             val = (evaluation.engagement_metrics as any)?.[col.id];

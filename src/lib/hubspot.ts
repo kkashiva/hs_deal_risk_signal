@@ -25,6 +25,42 @@ function getClient(): Client {
     return hubspotClient;
 }
 
+// --- Fetch Owners ---
+
+export async function fetchOwners(): Promise<Map<string, string>> {
+    const client = getClient();
+    const ownerMap = new Map<string, string>();
+
+    try {
+        let after: string | undefined;
+        do {
+            const response = await client.apiRequest({
+                method: 'GET',
+                path: `/crm/v3/owners${after ? `?after=${after}` : ''}`,
+            });
+            const data = await response.json() as {
+                results?: { id: string; firstName?: string; lastName?: string }[];
+                paging?: { next?: { after: string } };
+            };
+
+            for (const owner of data.results || []) {
+                const name = [owner.firstName, owner.lastName].filter(Boolean).join(' ').trim();
+                if (name) {
+                    ownerMap.set(owner.id, name);
+                }
+            }
+
+            after = data.paging?.next?.after;
+        } while (after);
+
+        console.log(`Fetched ${ownerMap.size} HubSpot owners`);
+    } catch (error) {
+        console.error('Failed to fetch HubSpot owners:', error);
+    }
+
+    return ownerMap;
+}
+
 // --- Custom Properties ---
 
 const RISK_PROPERTIES = [

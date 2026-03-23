@@ -124,6 +124,7 @@ export interface RiskEvaluation {
   deal_name: string;
   deal_amount: number | null;
   pipeline: string | null;
+  owner_name: string | null;
   evaluation_date?: Date;
   risk_level: RiskLevel;
   risk_reason: RiskReason;
