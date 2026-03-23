@@ -189,6 +189,7 @@ async function processDeal(
                 deal_analysis: dealAnalysis,
                 email_analysis: emailAnalysis,
                 transcript_analysis: transcriptAnalysis,
+                risk_type_change_date: riskTypeChangeDate,
             });
         } catch (dbError) {
             console.error(`DB error for deal ${deal.id}:`, dbError);

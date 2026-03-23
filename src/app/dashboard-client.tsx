@@ -25,6 +25,7 @@ const OPTIONAL_COLUMNS = [
     { id: 'close_date', label: 'Close Date', source: 'metadata' },
     { id: 'forecast_category', label: 'Forecast', source: 'metadata' },
     { id: 'owner_name', label: 'Owner', source: 'direct' },
+    { id: 'risk_type_change_date', label: 'Risk Level Changed', source: 'direct' },
     { id: 'num_contacts', label: 'Contacts', source: 'metadata' },
     { id: 'totalEmails', label: 'Emails', source: 'metrics' },
     { id: 'totalMeetings', label: 'Meetings', source: 'metrics' },
@@ -335,6 +336,8 @@ export function DashboardView({
     const filterAmountMax = activeView?.filters.amountMax ?? '';
     const filterCloseMin = activeView?.filters.closeMin ?? '';
     const filterCloseMax = activeView?.filters.closeMax ?? '';
+    const filterRiskChangeMin = activeView?.filters.riskChangeMin ?? '';
+    const filterRiskChangeMax = activeView?.filters.riskChangeMax ?? '';
     const visibleColumns = activeView?.columns ?? [];
     const sortConfig: SortConfig = activeView?.sort ?? { key: 'evaluation_date', direction: 'desc' };
 
@@ -360,6 +363,8 @@ export function DashboardView({
     const setFilterAmountMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMax: val } }));
     const setFilterCloseMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, closeMin: val } }));
     const setFilterCloseMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, closeMax: val } }));
+    const setFilterRiskChangeMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, riskChangeMin: val } }));
+    const setFilterRiskChangeMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, riskChangeMax: val } }));
     const setVisibleColumns = (cols: string[]) => updateActiveView(v => ({ ...v, columns: cols }));
     const setSortConfig = (s: SortConfig) => updateActiveView(v => ({ ...v, sort: s }));
 
@@ -448,6 +453,15 @@ export function DashboardView({
                 return false;
             }
 
+            const riskChangeDate = e.risk_type_change_date;
+            if (riskChangeDate) {
+                const riskChangeTs = new Date(riskChangeDate).getTime();
+                if (filterRiskChangeMin && riskChangeTs < new Date(filterRiskChangeMin).getTime()) return false;
+                if (filterRiskChangeMax && riskChangeTs > new Date(filterRiskChangeMax).getTime() + 86400000) return false;
+            } else if (filterRiskChangeMin || filterRiskChangeMax) {
+                return false;
+            }
+
             return true;
         });
 
@@ -501,6 +515,12 @@ export function DashboardView({
             if (isNullA) return 1;
             if (isNullB) return -1;
 
+            // Force date comparison for date columns
+            if (key === 'risk_type_change_date' || key === 'close_date') {
+                valA = new Date(valA).getTime();
+                valB = new Date(valB).getTime();
+            }
+
             // Force numeric comparison for specific keys
             const isNumeric = key === 'deal_amount' || key === 'confidence' || optionalCol?.source === 'metrics' || key === 'days_in_stage' || key === 'days_since_creation' || key === 'num_contacts';
             if (isNumeric) {
@@ -512,7 +532,7 @@ export function DashboardView({
             const comparison = valA < valB ? -1 : 1;
             return sortConfig.direction === 'asc' ? comparison : -comparison;
         });
-    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterOwner, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, sortConfig]);
+    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterOwner, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, filterRiskChangeMin, filterRiskChangeMax, sortConfig]);
 
     // Derive counts from the currently filtered evaluations so summary cards reflect active filters/view
     const filteredCounts = useMemo((): RiskCounts => {
@@ -598,7 +618,7 @@ export function DashboardView({
         }
     }
 
-    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterOwner || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax;
+    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterOwner || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax || filterRiskChangeMin || filterRiskChangeMax;
 
     function toggleRiskFilter(level: string) {
         if (filterRisk === level) {
@@ -732,6 +752,8 @@ export function DashboardView({
                                 setFilterAmountMax('');
                                 setFilterCloseMin('');
                                 setFilterCloseMax('');
+                                setFilterRiskChangeMin('');
+                                setFilterRiskChangeMax('');
                             }}
                         >
                             ✕ Clear Filters
@@ -878,6 +900,22 @@ export function DashboardView({
                         />
                     </div>
 
+                    <div className="filter-amount-group">
+                        <span className="filter-label">Risk Changed:</span>
+                        <CustomDatePicker
+                            value={filterRiskChangeMin}
+                            onChange={setFilterRiskChangeMin}
+                            placeholder="From"
+                        />
+                        <span className="filter-separator">-</span>
+                        <CustomDatePicker
+                            value={filterRiskChangeMax}
+                            onChange={setFilterRiskChangeMax}
+                            placeholder="To"
+                            align="right"
+                        />
+                    </div>
+
                     {hasActiveFilters && (
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                             {filteredAndSortedEvaluations.length} of {evaluations.length} deals
@@ -995,7 +1033,7 @@ export function DashboardView({
                                         }
 
                                         if (val === null || val === undefined) val = '—';
-                                        else if (colId === 'close_date') val = new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                        else if (colId === 'close_date' || colId === 'risk_type_change_date') val = new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                                         else if (typeof val === 'number') val = val.toLocaleString();
 
                                         return <td key={colId} style={{ fontSize: '12px' }}>{val}</td>;
