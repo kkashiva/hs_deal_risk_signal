@@ -23,7 +23,7 @@ import { PIPELINE_MAP } from './mappings';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
 import { analyzeDealRisk } from './ai-analyzer';
 import { sendHighRiskAlert, sendScanSummary, isSlackConfigured } from './slack';
-import { insertRiskEvaluation, insertScanRun } from '@/db/queries';
+import { insertRiskEvaluation, insertScanRun, getPreviousEvaluation } from '@/db/queries';
 
 const BATCH_SIZE = 5;
 
@@ -141,6 +141,27 @@ async function processDeal(
 
         // Analyze with AI
         const { result, provider, promptVersion, dealAnalysis, emailAnalysis, transcriptAnalysis } = await analyzeDealRisk(riskInput);
+
+        // Determine risk_type_change_date
+        let riskTypeChangeDate: Date;
+        try {
+            const previousEval = await getPreviousEvaluation(deal.id);
+            if (!previousEval) {
+                // First scan for this deal
+                riskTypeChangeDate = new Date();
+            } else if (previousEval.risk_level !== result.risk_level) {
+                // Risk level changed
+                riskTypeChangeDate = new Date();
+            } else {
+                // Risk level unchanged — carry forward
+                riskTypeChangeDate = previousEval.risk_type_change_date
+                    ? new Date(previousEval.risk_type_change_date)
+                    : new Date();
+            }
+        } catch (err) {
+            console.error(`Failed to fetch previous evaluation for deal ${deal.id}:`, err);
+            riskTypeChangeDate = new Date();
+        }
 
         // Write back to HubSpot
         await updateDealRiskFields(deal.id, result);
