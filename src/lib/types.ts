@@ -141,6 +141,7 @@ export interface RiskEvaluation {
   deal_analysis?: string | null;
   email_analysis?: string | null;
   transcript_analysis?: string | null;
+  risk_type_change_date?: Date | null;
   created_at?: Date;
 }
 

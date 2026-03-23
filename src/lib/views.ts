@@ -22,6 +22,8 @@ export interface ViewFilters {
     amountMax: string;
     closeMin: string;
     closeMax: string;
+    riskChangeMin: string;
+    riskChangeMax: string;
 }
 
 export interface ViewSort {
@@ -55,6 +57,8 @@ export function createDefaultFilters(): ViewFilters {
         amountMax: '',
         closeMin: '',
         closeMax: '',
+        riskChangeMin: '',
+        riskChangeMax: '',
     };
 }
 

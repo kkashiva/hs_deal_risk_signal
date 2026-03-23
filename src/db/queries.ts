@@ -16,8 +16,8 @@ export async function insertRiskEvaluation(
       explanation, recommended_action, confidence, escalation_target,
       model_used, prompt_version, was_lost_later, is_deal_open,
       deal_metadata, engagement_metrics,
-      deal_analysis, email_analysis, transcript_analysis
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      deal_analysis, email_analysis, transcript_analysis, risk_type_change_date
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
     RETURNING *`,
         [
             evaluation.deal_id,
@@ -40,6 +40,7 @@ export async function insertRiskEvaluation(
             evaluation.deal_analysis || null,
             evaluation.email_analysis || null,
             evaluation.transcript_analysis || null,
+            evaluation.risk_type_change_date || null,
         ]
     );
     return rows[0];
@@ -52,6 +53,17 @@ export async function getEvaluationsForDeal(dealId: string): Promise<RiskEvaluat
      ORDER BY evaluation_date DESC`,
         [dealId]
     );
+}
+
+export async function getPreviousEvaluation(dealId: string): Promise<RiskEvaluation | null> {
+    const rows = await query<RiskEvaluation>(
+        `SELECT * FROM risk_evaluations
+     WHERE deal_id = $1
+     ORDER BY evaluation_date DESC
+     LIMIT 1`,
+        [dealId]
+    );
+    return rows.length > 0 ? rows[0] : null;
 }
 
 export async function getLatestEvaluations(filters?: {
