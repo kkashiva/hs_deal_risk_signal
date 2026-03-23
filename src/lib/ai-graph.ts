@@ -93,7 +93,18 @@ Analyze the deal metadata and engagement metrics below. Focus on:
 
 Write a concise analysis (max 200 words) summarizing the key risk signals and health indicators from this data. Be specific — cite numbers.
 
-Do NOT flag deal amounts/pricing as a risk. Do NOT treat the absence of transcripts as a risk.`;
+CALIBRATION RULES:
+- Deals in legal/contract/negotiation stages naturally have fewer meetings and longer 
+  reply gaps. Do NOT flag this as risk unless the champion is also unresponsive.
+- Close date pushed once with a specific new date is NORMAL in enterprise. Only flag 
+  when pushed 2+ times without a confirmed replacement date.
+- Stage duration must be evaluated relative to the stage: late-stage deals (legal, 
+  procurement) routinely take 2-6 weeks. Early stages stalling 2+ weeks is more concerning.
+- Amount reductions due to scope refinement (fewer licenses, dropped add-ons) with 
+  confirmed intent to proceed are POSITIVE signals, not risk.
+- Do NOT flag deal amounts/pricing as a risk. 
+- Do NOT treat the absence of transcripts as a risk.
+- Explicitly note positive signals alongside risk signals in your analysis.`;
 
 async function analyzeDealNode(state: GraphStateType): Promise<Partial<GraphStateType>> {
     const model = getModel(state.provider);
@@ -151,7 +162,19 @@ Analyze the email engagements below. Focus on:
 - Any competitive mentions
 
 Write a concise analysis (max 200 words) summarizing the key email risk signals. Be specific — quote relevant phrases if notable.
-If no emails are provided, state "No email data available for analysis."`;
+If no emails are provided, state "No email data available for analysis."
+
+CALIBRATION RULES:
+- Distinguish between STALLING language and PROCESS language:
+  STALLING (risk): "We'll circle back", "Maybe next quarter", "Things are busy", 
+  "We need to pause" — with NO specific follow-up date.
+  PROCESS (healthy): "Legal needs another week for redlines", "PO is in approval queue",
+  "Security review typically takes 5-7 days", "Meeting scheduled with [person] on [date]".
+- Legal redlining, procurement setup, and security questionnaire exchanges are POSITIVE 
+  signals. Do not flag these as objections or concerns.
+- Champion delegating to legal/procurement contacts is a healthy handoff, not disengagement.
+- Shorter, transactional emails in late stages are expected — do not interpret as 
+  sentiment deterioration.`;
 
 async function analyzeEmailsNode(state: GraphStateType): Promise<Partial<GraphStateType>> {
     const model = getModel(state.provider);
@@ -200,7 +223,30 @@ Analyze the call transcripts below using MEDDPICC methodology. Focus on:
 - Prospect engagement level during calls (asking questions, passive, disengaged?)
 
 Write a concise analysis (max 200 words) summarizing the key transcript risk signals. Be specific — reference what was said.
-If no transcripts are provided, state "No transcript data available for analysis."`;
+If no transcripts are provided, state "No transcript data available for analysis."
+
+CALIBRATION RULES:
+- Champion strength is not binary. A champion who says "I need to check with legal" 
+  or "Let me loop in procurement" is ACTIVELY DRIVING the deal internally — this is 
+  a POSITIVE signal, not weakness. Only flag champion weakness when they deflect 
+  without action: "I'll try to find out" with no follow-through across multiple calls.
+- Economic Buyer not being on a call is not automatically a risk. In enterprise deals, 
+  the EB often delegates evaluation to a champion or committee. Flag EB absence as risk 
+  only when: the deal is in late stages (negotiation/contract) AND the champion cannot 
+  articulate the EB's position or approval path.
+- Legal/procurement discussion on calls is a STRONG POSITIVE signal. Conversations about 
+  redlines, security questionnaires, vendor setup, PO timelines, or contract terms mean 
+  the deal has crossed into active buying. Do not flag these discussions as objections.
+- Scope refinement on calls (reducing licenses, adjusting package) where the prospect 
+  confirms intent to proceed is POSITIVE — they are right-sizing to close, not backing away.
+- Competition mentions require context: "We looked at X but prefer your approach" is 
+  positive. "We're still evaluating X in parallel" is medium risk. "X offered us a 
+  better deal" is high risk.
+- Objections paired with resolution attempts are healthier than silence. A prospect 
+  raising concerns on a call and engaging in problem-solving is more engaged than one 
+  who says nothing and goes dark afterward.
+- Timeline discussions: distinguish between "We want to go live by [date]" (positive) 
+  vs "We'll figure out timing later" (risk). Specificity = commitment.`;
 
 async function analyzeTranscriptsNode(state: GraphStateType): Promise<Partial<GraphStateType>> {
     if (!state.transcriptSummary) {
@@ -232,17 +278,18 @@ IMPORTANT GUIDELINES:
 - Do NOT treat the absence of Gong transcripts as a risk signal.
 - When a forecast category IS provided, use it as context but do not flag its presence/absence as the primary risk factor.
 
-REPLY VELOCITY & MEETING CADENCE:
-- Healthy deals: <48h avg email reply time, ~7 days between meetings.
-- Warning: reply times >48h or meeting gaps >14 days. Both together = strong risk.
+Risk Level Assignment Rules:
+- HIGH: Requires 2+ strong negative signals with NO offsetting positive signals.
+  Valid HIGH combinations: champion silent 14+ days AND no legal/procurement activity; 
+  single-threaded AND late-stage AND stalling language; budget frozen with no alternative path.
+  INVALID HIGH: deal in legal review with slower email cadence (this is normal).
+- MEDIUM: 1-2 negative signals present, OR negatives partially offset by positives.
+  Example: stage stagnating 2 weeks BUT legal redlines actively exchanged = MEDIUM not HIGH.
+- LOW: Healthy progression, minor or no negatives, normal patterns for the current stage.
 
-TIMELINE STALLING:
-- Watch for postponing, vague timing, shifting deadlines in the analyses.
-
-Risk Level Guidelines:
-- HIGH: Strong indicators of deal loss (no activity 14+ days, close date pushed 2+ times, no champion, late stage with low engagement, reply time >72h with infrequent meetings, clear timeline stalling)
-- MEDIUM: Warning signs present but salvageable (slowing engagement, single-threaded, competing priorities, reply times 48-72h, meeting gaps 10-14 days)
-- LOW: Deal appears healthy with normal progression
+Critical override: If legal redlining, security review, or procurement processes are actively 
+underway, the maximum risk level is MEDIUM unless the champion has gone completely silent 
+(3+ unanswered follow-ups) AND procurement has also stalled.
 
 Escalation Guidelines:
 - "ae": AE can handle with coaching
