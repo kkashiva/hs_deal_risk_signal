@@ -17,6 +17,7 @@ export interface ViewFilters {
     risk: string;
     reason: string;
     stage: string;
+    owner: string;
     amountMin: string;
     amountMax: string;
     closeMin: string;
@@ -49,6 +50,7 @@ export function createDefaultFilters(): ViewFilters {
         risk: '',
         reason: '',
         stage: '',
+        owner: '',
         amountMin: '',
         amountMax: '',
         closeMin: '',

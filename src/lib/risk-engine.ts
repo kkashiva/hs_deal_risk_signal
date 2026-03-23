@@ -17,6 +17,7 @@ import {
     updateDealRiskFields,
     createTaskForHighRisk,
     isDealOpen,
+    fetchOwners,
 } from './hubspot';
 import { PIPELINE_MAP } from './mappings';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
@@ -129,7 +130,8 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
 
 async function processDeal(
     deal: HubSpotDeal,
-    isOpen: boolean = true
+    isOpen: boolean = true,
+    ownerName: string | null = null
 ): Promise<{ success: boolean; riskLevel?: string }> {
     try {
         console.log(`Processing deal: ${deal.properties.dealname} (${deal.id})`);
@@ -150,6 +152,7 @@ async function processDeal(
                 deal_name: deal.properties.dealname,
                 deal_amount: riskInput.deal_metadata.mrr,
                 pipeline: deal.properties.pipeline || null,
+                owner_name: ownerName,
                 risk_level: result.risk_level,
                 risk_reason: result.primary_risk_reason,
                 explanation: result.explanation,
@@ -187,7 +190,7 @@ async function processDeal(
                         name: deal.properties.dealname,
                         amount: amount || null,
                         stage: deal.properties.dealstage,
-                        owner: deal.properties.hubspot_owner_id,
+                        owner: ownerName || deal.properties.hubspot_owner_id,
                     },
                     result
                 );
@@ -251,6 +254,9 @@ export async function runRiskScan(
 
     console.log(`Found ${deals.length} deals to analyze\n`);
 
+    // Fetch owner map (id → name) for resolving owner names
+    const ownerMap = await fetchOwners();
+
     let analyzed = 0;
     let highRisk = 0;
     let mediumRisk = 0;
@@ -263,7 +269,9 @@ export async function runRiskScan(
         const results = await Promise.all(
             batch.map(deal => {
                 const isOpen = isDealOpen(deal);
-                return processDeal(deal, isOpen);
+                const ownerId = deal.properties.hubspot_owner_id;
+                const ownerName = ownerId ? ownerMap.get(ownerId) || null : null;
+                return processDeal(deal, isOpen, ownerName);
             })
         );
 

@@ -9,21 +9,23 @@ import {
   getRiskCounts,
   getDistinctPipelines,
   getDistinctRiskReasons,
-  getDistinctStages
+  getDistinctStages,
+  getDistinctOwners,
 } from '@/db/queries';
 import { RiskEvaluation } from '@/lib/types';
 import { DashboardView } from './dashboard-client';
 
 async function getDashboardData() {
   try {
-    const [evaluations, counts, pipelines, riskReasons, stages] = await Promise.all([
+    const [evaluations, counts, pipelines, riskReasons, stages, owners] = await Promise.all([
       getLatestEvaluations({ limit: 200 }),
       getRiskCounts(),
       getDistinctPipelines(),
       getDistinctRiskReasons(),
       getDistinctStages(),
+      getDistinctOwners(),
     ]);
-    return { evaluations, counts, pipelines, riskReasons, stages, error: null };
+    return { evaluations, counts, pipelines, riskReasons, stages, owners, error: null };
   } catch {
     return {
       evaluations: [] as RiskEvaluation[],
@@ -34,13 +36,14 @@ async function getDashboardData() {
       pipelines: [] as string[],
       riskReasons: [] as string[],
       stages: [] as string[],
+      owners: [] as string[],
       error: 'Database not connected. Run the migration and set DATABASE_URL.',
     };
   }
 }
 
 export default async function DashboardPage() {
-  const { evaluations, counts, pipelines, riskReasons, stages, error } = await getDashboardData();
+  const { evaluations, counts, pipelines, riskReasons, stages, owners, error } = await getDashboardData();
 
   return (
     <DashboardView
@@ -49,6 +52,7 @@ export default async function DashboardPage() {
       pipelines={pipelines}
       riskReasons={riskReasons}
       stages={stages}
+      owners={owners}
       error={error}
     />
   );

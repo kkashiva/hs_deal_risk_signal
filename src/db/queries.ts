@@ -12,18 +12,19 @@ export async function insertRiskEvaluation(
 ): Promise<RiskEvaluation> {
     const rows = await query<RiskEvaluation>(
         `INSERT INTO risk_evaluations (
-      deal_id, deal_name, deal_amount, pipeline, risk_level, risk_reason,
+      deal_id, deal_name, deal_amount, pipeline, owner_name, risk_level, risk_reason,
       explanation, recommended_action, confidence, escalation_target,
       model_used, prompt_version, was_lost_later, is_deal_open,
       deal_metadata, engagement_metrics,
       deal_analysis, email_analysis, transcript_analysis
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     RETURNING *`,
         [
             evaluation.deal_id,
             evaluation.deal_name,
             evaluation.deal_amount,
             evaluation.pipeline,
+            evaluation.owner_name || null,
             evaluation.risk_level,
             evaluation.risk_reason,
             evaluation.explanation,
@@ -157,6 +158,13 @@ export async function getDistinctStages(): Promise<string[]> {
      ORDER BY stage`
     );
     return rows.map(r => r.stage);
+}
+
+export async function getDistinctOwners(): Promise<string[]> {
+    const rows = await query<{ owner_name: string }>(
+        `SELECT DISTINCT owner_name FROM risk_evaluations WHERE owner_name IS NOT NULL AND is_deal_open = TRUE ORDER BY owner_name`
+    );
+    return rows.map(r => r.owner_name);
 }
 
 export async function markDealAsLost(dealId: string): Promise<void> {
