@@ -50,7 +50,7 @@ Built as a serverless-native **Next.js (App Router)** application, designed for 
 ## Features
 
 ### 1. Pipeline Risk Dashboard
-A beautiful, interactive Next.js dashboard that displays summary metrics, sortable deal tables, and client-side filtering by Pipeline, Risk Level, and Deal Amount.
+A beautiful, interactive Next.js dashboard that displays summary metrics, sortable deal tables, and client-side filtering by Pipeline, Risk Level, Deal Amount, Close Date, and Risk Level Change Date.
 
 ![Deal Risk Dashboard Table](images/dashboard_table.png)
 *Fig.2 Deal Risk Dashboard - Users can filter and edit columns*
@@ -97,6 +97,8 @@ psql $DATABASE_URL < src/db/migrations/002_add_pipeline.sql
 psql $DATABASE_URL < src/db/migrations/003_add_deal_context.sql
 psql $DATABASE_URL < src/db/migrations/004_add_is_deal_open.sql
 psql $DATABASE_URL < src/db/migrations/005_add_node_outputs.sql
+psql $DATABASE_URL < src/db/migrations/006_add_owner_name.sql
+psql $DATABASE_URL < src/db/migrations/007_add_risk_type_change_date.sql
 ```
 
 ### 2. Environment Variables
