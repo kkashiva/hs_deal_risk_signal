@@ -72,7 +72,7 @@ function getModel(provider: LLMProvider): BaseChatModel {
         });
     } else {
         return new ChatAnthropic({
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-opus-4-6-20250527',
             apiKey: config.anthropic.apiKey,
             maxTokens: 1024,
             temperature: 0.3,
