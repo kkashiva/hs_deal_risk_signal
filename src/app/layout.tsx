@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Link from 'next/link';
 import Image from 'next/image';
+import { Analytics } from "@vercel/analytics/next";
 import { LogoutButton } from './logout-button';
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default function RootLayout({
           </nav>
           {children}
         </div>
+        <Analytics />
       </body>
     </html>
   );
