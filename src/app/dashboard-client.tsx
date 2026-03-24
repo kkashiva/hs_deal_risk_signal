@@ -981,6 +981,7 @@ export function DashboardView({
                                     currentSort={sortConfig}
                                     onSort={(key) => setSortConfig(nextSort(sortConfig, key))}
                                 />
+                                <th>Explanation</th>
                                 <SortableHeader
                                     label="Confidence"
                                     sortKey="confidence"
@@ -1042,6 +1043,14 @@ export function DashboardView({
                                     <td><RiskBadge level={evaluation.risk_level} /></td>
                                     <td style={{ textTransform: 'capitalize' }}>
                                         {evaluation.risk_reason?.replace(/_/g, ' ') || '—'}
+                                    </td>
+                                    <td>
+                                        <div 
+                                            className="explanation-cell" 
+                                            title={evaluation.explanation}
+                                        >
+                                            {evaluation.explanation || '—'}
+                                        </div>
                                     </td>
                                     <td><ConfidenceBar score={evaluation.confidence} /></td>
                                     <td style={{ textTransform: 'capitalize' }}>

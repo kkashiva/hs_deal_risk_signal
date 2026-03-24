@@ -771,6 +771,25 @@ td .confidence-fill {
   transition: width 0.3s ease;
 }
 
+.explanation-cell {
+  max-width: 320px;
+  min-width: 200px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.explanation-cell:hover {
+  cursor: help;
+  color: var(--text-primary);
+}
+
 /* --- Deal Detail Page --- */
 
 .detail-header {
