@@ -9,7 +9,7 @@ An AI-assisted system that continuously analyzes open deals to identify early ri
 The **Sales Deal Risk Engine** follows a multi-stage analysis pipeline built on **LangGraph**:
 1. **Focused Analysis Nodes:** Each data source (Deal metadata, Emails, Gong transcripts) is processed in parallel by focused LLM prompts to extract concise summaries.
 2. **Synthesis Node:** These summaries are combined with core deal context (Stage, Amount, etc.) to produce a final structured risk assessment.
-3. **Multi-LLM Routing:** Dynamic routing based on deal size and stage (e.g., Gemini for smaller deals, Claude for complex, high-value ones).
+3. **Multi-LLM Routing:** Dynamic routing based on deal size and stage (e.g., Gemini for smaller deals, Claude Opus for complex, high-value ones) with automatic per-node fallback to the alternate provider on errors.
 
 ![Multi Node LangGraph AI Agent](images/LangGraph_4node.png)
 *Fig.1 Multi node LangGraph AI agent*

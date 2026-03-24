@@ -72,11 +72,72 @@ function getModel(provider: LLMProvider): BaseChatModel {
         });
     } else {
         return new ChatAnthropic({
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-opus-4-6',
             apiKey: config.anthropic.apiKey,
             maxTokens: 1024,
             temperature: 0.3,
         });
+    }
+}
+
+function getAlternateProvider(provider: LLMProvider): LLMProvider {
+    return provider === 'claude' ? 'gemini' : 'claude';
+}
+
+function isFallbackAvailable(fallbackProvider: LLMProvider): boolean {
+    const config = getConfig();
+    if (fallbackProvider === 'claude') {
+        return !!config.anthropic.apiKey;
+    }
+    return !!config.gemini.apiKey;
+}
+
+// Invoke with automatic fallback to alternate provider on error
+async function invokeWithFallback(
+    provider: LLMProvider,
+    messages: (SystemMessage | HumanMessage)[],
+    nodeName: string
+): Promise<string> {
+    try {
+        const model = getModel(provider);
+        const response = await model.invoke(messages);
+        return typeof response.content === 'string'
+            ? response.content
+            : JSON.stringify(response.content);
+    } catch (error) {
+        const fallback = getAlternateProvider(provider);
+        if (!isFallbackAvailable(fallback)) {
+            throw error;
+        }
+        console.warn(`  ⚠️ ${nodeName} failed with ${provider}, retrying with ${fallback}:`, error);
+        const model = getModel(fallback);
+        const response = await model.invoke(messages);
+        return typeof response.content === 'string'
+            ? response.content
+            : JSON.stringify(response.content);
+    }
+}
+
+// Structured output invoke with automatic fallback
+async function invokeStructuredWithFallback(
+    provider: LLMProvider,
+    messages: (SystemMessage | HumanMessage)[],
+    schema: z.ZodType,
+    nodeName: string
+): Promise<RiskAnalysisResult> {
+    try {
+        const model = getModel(provider);
+        const structuredModel = model.withStructuredOutput(schema);
+        return await structuredModel.invoke(messages) as RiskAnalysisResult;
+    } catch (error) {
+        const fallback = getAlternateProvider(provider);
+        if (!isFallbackAvailable(fallback)) {
+            throw error;
+        }
+        console.warn(`  ⚠️ ${nodeName} failed with ${provider}, retrying with ${fallback}:`, error);
+        const model = getModel(fallback);
+        const structuredModel = model.withStructuredOutput(schema);
+        return await structuredModel.invoke(messages) as RiskAnalysisResult;
     }
 }
 
@@ -107,7 +168,6 @@ CALIBRATION RULES:
 - Explicitly note positive signals alongside risk signals in your analysis.`;
 
 async function analyzeDealNode(state: GraphStateType): Promise<Partial<GraphStateType>> {
-    const model = getModel(state.provider);
     const dm = state.dealMetadata;
     const em = state.engagementMetrics;
 
@@ -136,14 +196,12 @@ ENGAGEMENT METRICS:
 - Avg days between meetings: ${em.avgDaysBetweenMeetings ?? 'N/A'}
 - Avg days between activities: ${em.avgDaysBetweenActivities ?? 'N/A'}`;
 
-    const response = await model.invoke([
+    const messages: (SystemMessage | HumanMessage)[] = [
         new SystemMessage(DEAL_ANALYSIS_PROMPT),
         new HumanMessage(userPrompt),
-    ]);
+    ];
 
-    const content = typeof response.content === 'string'
-        ? response.content
-        : JSON.stringify(response.content);
+    const content = await invokeWithFallback(state.provider, messages, 'Deal analysis');
 
     console.log(`  ✅ Deal analysis node complete (${content.length} chars)`);
     return { dealAnalysis: content };
@@ -177,8 +235,6 @@ CALIBRATION RULES:
   sentiment deterioration.`;
 
 async function analyzeEmailsNode(state: GraphStateType): Promise<Partial<GraphStateType>> {
-    const model = getModel(state.provider);
-
     const emailEngagements = state.recentEngagements.filter(e =>
         e.type === 'EMAIL' || e.type === 'email'
     );
@@ -195,14 +251,12 @@ async function analyzeEmailsNode(state: GraphStateType): Promise<Partial<GraphSt
     const userPrompt = `RECENT EMAIL ENGAGEMENTS (${emailEngagements.length} emails):
 ${emailList}`;
 
-    const response = await model.invoke([
+    const messages: (SystemMessage | HumanMessage)[] = [
         new SystemMessage(EMAIL_ANALYSIS_PROMPT),
         new HumanMessage(userPrompt),
-    ]);
+    ];
 
-    const content = typeof response.content === 'string'
-        ? response.content
-        : JSON.stringify(response.content);
+    const content = await invokeWithFallback(state.provider, messages, 'Email analysis');
 
     console.log(`  ✅ Email analysis node complete (${content.length} chars)`);
     return { emailAnalysis: content };
@@ -254,16 +308,12 @@ async function analyzeTranscriptsNode(state: GraphStateType): Promise<Partial<Gr
         return { transcriptAnalysis: 'No transcript data available for analysis.' };
     }
 
-    const model = getModel(state.provider);
-
-    const response = await model.invoke([
+    const messages: (SystemMessage | HumanMessage)[] = [
         new SystemMessage(TRANSCRIPT_ANALYSIS_PROMPT),
         new HumanMessage(`CALL TRANSCRIPTS:\n${state.transcriptSummary}`),
-    ]);
+    ];
 
-    const content = typeof response.content === 'string'
-        ? response.content
-        : JSON.stringify(response.content);
+    const content = await invokeWithFallback(state.provider, messages, 'Transcript analysis');
 
     console.log(`  ✅ Transcript analysis node complete (${content.length} chars)`);
     return { transcriptAnalysis: content };
@@ -299,7 +349,6 @@ Escalation Guidelines:
 Based on all three analyses, produce your final risk assessment. The explanation should be max 4 sentences with specific evidence drawn from the analyses.`;
 
 async function synthesizeNode(state: GraphStateType): Promise<Partial<GraphStateType>> {
-    const model = getModel(state.provider);
     const dm = state.dealMetadata;
 
     const userPrompt = `DEAL: "${dm.deal_name}" | Stage: ${dm.stage || 'Unknown'} | MRR: $${dm.mrr || 'Unknown'}
@@ -315,13 +364,14 @@ ${state.transcriptAnalysis}
 
 Synthesize the above into a single risk assessment. Respond with ONLY valid JSON matching the required schema.`;
 
-    // Use withStructuredOutput for guaranteed schema compliance
-    const structuredModel = model.withStructuredOutput(RiskAnalysisResultSchema);
-
-    const result = await structuredModel.invoke([
+    const messages: (SystemMessage | HumanMessage)[] = [
         new SystemMessage(SYNTHESIS_PROMPT),
         new HumanMessage(userPrompt),
-    ]);
+    ];
+
+    const result = await invokeStructuredWithFallback(
+        state.provider, messages, RiskAnalysisResultSchema, 'Synthesis'
+    );
 
     console.log(`  ✅ Synthesis node complete: ${result.risk_level} risk (${result.confidence_score}% confidence)`);
     return { result: result as RiskAnalysisResult };
