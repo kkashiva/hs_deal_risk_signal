@@ -4,7 +4,7 @@
 // Scan History Page — Cron Execution History (Client Component)
 // ============================================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ScanRun } from '@/lib/types';
 import Link from 'next/link';
 
@@ -30,12 +30,160 @@ function formatDuration(start: Date | string, end?: Date | string): string {
     return `${mins}m ${secs}s`;
 }
 
+// ── Hidden Dev Panel ────────────────────────────────────────
+function DevScanPanel({ onClose, onScanComplete }: { onClose: () => void; onScanComplete: () => void }) {
+    const [dealId, setDealId] = useState('');
+    const [pipelineId, setPipelineId] = useState('');
+    const [scanning, setScanning] = useState(false);
+    const [result, setResult] = useState<string | null>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Close on click outside
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+                onClose();
+            }
+        }
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [onClose]);
+
+    // Close on Escape
+    useEffect(() => {
+        function handleKey(e: KeyboardEvent) {
+            if (e.key === 'Escape') onClose();
+        }
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [onClose]);
+
+    async function handleRun() {
+        setScanning(true);
+        setResult(null);
+
+        try {
+            const secret = prompt('Enter CRON_SECRET:');
+            if (!secret) { setScanning(false); return; }
+
+            const params = new URLSearchParams();
+            if (dealId.trim()) params.set('deal_id', dealId.trim());
+            if (pipelineId.trim()) params.set('pipeline_id', pipelineId.trim());
+            const qs = params.toString() ? `?${params.toString()}` : '';
+
+            const res = await fetch(`/api/cron/risk-scan${qs}`, {
+                headers: { Authorization: `Bearer ${secret}` },
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                setResult(
+                    `✅ Scan complete: ${data.analyzed} deals, ` +
+                    `${data.highRisk} HIGH, ${data.mediumRisk} MEDIUM, ${data.lowRisk} LOW ` +
+                    `(${(data.duration_ms / 1000).toFixed(1)}s)`
+                );
+                onScanComplete();
+            } else {
+                setResult(`❌ Scan failed: ${data.error}`);
+            }
+        } catch (err) {
+            setResult(`❌ Error: ${err instanceof Error ? err.message : 'Unknown'}`);
+        } finally {
+            setScanning(false);
+        }
+    }
+
+    return (
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.5)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+        }}>
+            <div ref={panelRef} style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)', padding: '24px',
+                width: '380px', maxWidth: '90vw',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>🔧 Dev Scan</h3>
+                    <button onClick={onClose} style={{
+                        background: 'none', border: 'none', color: 'var(--text-muted)',
+                        cursor: 'pointer', fontSize: '18px', lineHeight: 1,
+                    }}>×</button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div>
+                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                            Deal ID <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={dealId}
+                            onChange={(e) => setDealId(e.target.value)}
+                            placeholder="e.g. 53407665212"
+                            style={{
+                                width: '100%', padding: '8px 10px', fontSize: '13px',
+                                background: 'var(--bg-page)', border: '1px solid var(--border)',
+                                borderRadius: '6px', color: 'var(--text-primary)',
+                                outline: 'none', boxSizing: 'border-box',
+                            }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                            Pipeline ID <span style={{ color: 'var(--text-muted)' }}>(optional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={pipelineId}
+                            onChange={(e) => setPipelineId(e.target.value)}
+                            placeholder="e.g. default"
+                            style={{
+                                width: '100%', padding: '8px 10px', fontSize: '13px',
+                                background: 'var(--bg-page)', border: '1px solid var(--border)',
+                                borderRadius: '6px', color: 'var(--text-primary)',
+                                outline: 'none', boxSizing: 'border-box',
+                            }}
+                        />
+                    </div>
+
+                    {result && (
+                        <div style={{
+                            padding: '10px 12px', borderRadius: '6px', fontSize: '12px',
+                            background: result.startsWith('✅') ? 'var(--risk-low-bg)' : 'var(--risk-high-bg)',
+                            color: result.startsWith('✅') ? 'var(--risk-low)' : 'var(--risk-high)',
+                            border: `1px solid ${result.startsWith('✅') ? 'var(--risk-low-border)' : 'var(--risk-high-border)'}`,
+                            wordBreak: 'break-word',
+                        }}>
+                            {result}
+                        </div>
+                    )}
+
+                    <button
+                        className="btn btn-primary"
+                        onClick={handleRun}
+                        disabled={scanning}
+                        style={{ width: '100%', marginTop: '4px' }}
+                    >
+                        {scanning ? '⏳ Scanning...' : '🔍 Run Scan'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Main Page ───────────────────────────────────────────────
 export default function ScanHistoryPage() {
     const [runs, setRuns] = useState<ScanRun[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [scanning, setScanning] = useState(false);
-    const [scanResult, setScanResult] = useState<string | null>(null);
+
+    // Hidden dev panel state
+    const [showDevPanel, setShowDevPanel] = useState(false);
+    const clickTimestamps = useRef<number[]>([]);
 
     const fetchRuns = async () => {
         try {
@@ -55,78 +203,43 @@ export default function ScanHistoryPage() {
         fetchRuns();
     }, []);
 
-    async function triggerScan() {
-        setScanning(true);
-        setScanResult(null);
-
-        try {
-            const secret = prompt('Enter CRON_SECRET:');
-            if (!secret) {
-                setScanning(false);
-                return;
-            }
-            const res = await fetch('/api/cron/risk-scan', {
-                headers: { Authorization: `Bearer ${secret}` },
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                setScanResult(
-                    `✅ Scan complete: ${data.analyzed} deals, ` +
-                    `${data.highRisk} HIGH, ${data.mediumRisk} MEDIUM, ${data.lowRisk} LOW ` +
-                    `(${(data.duration_ms / 1000).toFixed(1)}s)`
-                );
-                fetchRuns();
-            } else {
-                setScanResult(`❌ Scan failed: ${data.error}`);
-            }
-        } catch (err) {
-            setScanResult(`❌ Error: ${err instanceof Error ? err.message : 'Unknown'}`);
-        } finally {
-            setScanning(false);
+    // 5 rapid clicks within 2 seconds to activate
+    const handleTitleClick = useCallback(() => {
+        const now = Date.now();
+        clickTimestamps.current = [...clickTimestamps.current.filter(t => now - t < 2000), now];
+        if (clickTimestamps.current.length >= 5) {
+            clickTimestamps.current = [];
+            setShowDevPanel(true);
         }
-    }
+    }, []);
 
     return (
         <div className="animate-in">
+            {/* Hidden dev panel */}
+            {showDevPanel && (
+                <DevScanPanel
+                    onClose={() => setShowDevPanel(false)}
+                    onScanComplete={fetchRuns}
+                />
+            )}
+
             {/* Header */}
             <div style={{ marginBottom: '24px' }}>
                 <Link href="/" style={{ fontSize: '13px', color: 'var(--text-muted)', textDecoration: 'none' }}>
                     ← Back to Dashboard
                 </Link>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '8px' }}>
-                    <div>
-                        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px' }}>Scan History</h1>
-                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                            Audit log of automated and manual risk detection scans.
-                        </p>
-                    </div>
-                    <button
-                        className="btn btn-primary"
-                        onClick={triggerScan}
-                        disabled={scanning}
+                <div style={{ marginTop: '8px' }}>
+                    <h1
+                        onClick={handleTitleClick}
+                        style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px', cursor: 'default', userSelect: 'none' }}
                     >
-                        {scanning ? '⏳ Scanning...' : '🔍 Run Risk Scan Now'}
-                    </button>
+                        Scan History
+                    </h1>
+                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        Audit log of automated and manual risk detection scans.
+                    </p>
                 </div>
             </div>
-
-            {scanResult && (
-                <div style={{ 
-                    marginBottom: '24px', 
-                    background: 'var(--bg-card)', 
-                    border: '1px solid var(--accent)', 
-                    color: 'var(--text-primary)', 
-                    padding: '12px 16px', 
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '13px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                }}>
-                    {scanResult}
-                </div>
-            )}
 
             <div className="table-container">
                 <div className="table-header">
