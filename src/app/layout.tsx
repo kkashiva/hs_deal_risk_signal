@@ -29,6 +29,7 @@ export default function RootLayout({
             </Link>
             <div className="nav-actions">
               <Link href="/" className="btn btn-sm">📊 Dashboard</Link>
+              <Link href="/lost-deals" className="btn btn-sm">📉 Lost Deals</Link>
               <Link href="/scan-history" className="btn btn-sm">📋 Scan History</Link>
               <LogoutButton />
             </div>

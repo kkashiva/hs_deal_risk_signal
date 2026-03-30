@@ -190,6 +190,20 @@ export async function getDistinctOwners(): Promise<string[]> {
     return rows.map(r => r.owner_name);
 }
 
+// --- Lost Deals ---
+
+export async function getLostDealEvaluations(): Promise<RiskEvaluation[]> {
+    return query<RiskEvaluation>(`
+        SELECT * FROM (
+            SELECT DISTINCT ON (deal_id) *
+            FROM risk_evaluations
+            ORDER BY deal_id, evaluation_date DESC
+        ) latest
+        WHERE is_deal_open = FALSE
+        ORDER BY evaluation_date DESC
+    `);
+}
+
 export async function markDealAsLost(dealId: string): Promise<void> {
     await query(
         `UPDATE risk_evaluations SET was_lost_later = true WHERE deal_id = $1`,
