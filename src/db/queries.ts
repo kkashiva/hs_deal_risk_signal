@@ -5,6 +5,17 @@
 import { query } from './client';
 import { RiskEvaluation, ScanRun, RiskCounts } from '@/lib/types';
 
+// Subquery that identifies deal_ids whose most recent evaluation is closed.
+// Used to fully exclude lost deals from all dashboard queries.
+const CLOSED_DEAL_IDS_SUBQUERY = `
+  SELECT deal_id FROM (
+    SELECT DISTINCT ON (deal_id) deal_id, is_deal_open
+    FROM risk_evaluations
+    ORDER BY deal_id, evaluation_date DESC
+  ) latest_status
+  WHERE is_deal_open = FALSE
+`;
+
 // --- Risk Evaluations ---
 
 export async function insertRiskEvaluation(
@@ -75,6 +86,7 @@ export async function getLatestEvaluations(filters?: {
     SELECT DISTINCT ON (deal_id) *
     FROM risk_evaluations
     WHERE is_deal_open = TRUE
+      AND deal_id NOT IN (${CLOSED_DEAL_IDS_SUBQUERY})
   `;
     const params: unknown[] = [];
     let paramIndex = 1;
@@ -113,6 +125,7 @@ export async function getRiskCounts(): Promise<RiskCounts> {
        SELECT DISTINCT ON (deal_id) deal_id, risk_level, pipeline
        FROM risk_evaluations
        WHERE is_deal_open = TRUE
+         AND deal_id NOT IN (${CLOSED_DEAL_IDS_SUBQUERY})
        ORDER BY deal_id, evaluation_date DESC
      ) latest
      GROUP BY risk_level, pipeline`
@@ -150,14 +163,14 @@ export async function getRiskCounts(): Promise<RiskCounts> {
 
 export async function getDistinctPipelines(): Promise<string[]> {
     const rows = await query<{ pipeline: string }>(
-        `SELECT DISTINCT pipeline FROM risk_evaluations WHERE pipeline IS NOT NULL AND is_deal_open = TRUE ORDER BY pipeline`
+        `SELECT DISTINCT pipeline FROM risk_evaluations WHERE pipeline IS NOT NULL AND is_deal_open = TRUE AND deal_id NOT IN (${CLOSED_DEAL_IDS_SUBQUERY}) ORDER BY pipeline`
     );
     return rows.map(r => r.pipeline);
 }
 
 export async function getDistinctRiskReasons(): Promise<string[]> {
     const rows = await query<{ risk_reason: string }>(
-        `SELECT DISTINCT risk_reason FROM risk_evaluations WHERE risk_reason IS NOT NULL AND is_deal_open = TRUE ORDER BY risk_reason`
+        `SELECT DISTINCT risk_reason FROM risk_evaluations WHERE risk_reason IS NOT NULL AND is_deal_open = TRUE AND deal_id NOT IN (${CLOSED_DEAL_IDS_SUBQUERY}) ORDER BY risk_reason`
     );
     return rows.map(r => r.risk_reason);
 }
@@ -166,7 +179,7 @@ export async function getDistinctStages(): Promise<string[]> {
     const rows = await query<{ stage: string }>(
         `SELECT DISTINCT deal_metadata->>'stage' as stage 
      FROM risk_evaluations 
-     WHERE deal_metadata->>'stage' IS NOT NULL AND is_deal_open = TRUE
+     WHERE deal_metadata->>'stage' IS NOT NULL AND is_deal_open = TRUE AND deal_id NOT IN (${CLOSED_DEAL_IDS_SUBQUERY})
      ORDER BY stage`
     );
     return rows.map(r => r.stage);
@@ -174,9 +187,24 @@ export async function getDistinctStages(): Promise<string[]> {
 
 export async function getDistinctOwners(): Promise<string[]> {
     const rows = await query<{ owner_name: string }>(
-        `SELECT DISTINCT owner_name FROM risk_evaluations WHERE owner_name IS NOT NULL AND is_deal_open = TRUE ORDER BY owner_name`
+        `SELECT DISTINCT owner_name FROM risk_evaluations WHERE owner_name IS NOT NULL AND is_deal_open = TRUE AND deal_id NOT IN (${CLOSED_DEAL_IDS_SUBQUERY}) ORDER BY owner_name`
     );
     return rows.map(r => r.owner_name);
+}
+
+// --- Lost Deals ---
+
+export async function getLostDealEvaluations(): Promise<RiskEvaluation[]> {
+    return query<RiskEvaluation>(`
+        SELECT * FROM (
+            SELECT DISTINCT ON (deal_id) *
+            FROM risk_evaluations
+            ORDER BY deal_id, evaluation_date DESC
+        ) latest
+        WHERE is_deal_open = FALSE
+          AND LOWER(deal_metadata->>'stage') LIKE '%closed lost%'
+        ORDER BY evaluation_date DESC
+    `);
 }
 
 export async function markDealAsLost(dealId: string): Promise<void> {
