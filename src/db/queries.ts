@@ -1,7 +1,4 @@
-// ============================================================
-// Database Queries — Raw SQL
-// ============================================================
-
+// Last updated: 2026-03-31 with updateScanRun export
 import { query } from './client';
 import { RiskEvaluation, ScanRun, RiskCounts } from '@/lib/types';
 
@@ -220,8 +217,8 @@ export async function insertScanRun(
     run: Omit<ScanRun, 'id'>
 ): Promise<ScanRun> {
     const rows = await query<ScanRun>(
-        `INSERT INTO scan_runs (started_at, completed_at, total_deals, high_risk_count, errors, summary)
-     VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO scan_runs (started_at, completed_at, total_deals, high_risk_count, errors, trigger_source, summary)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
         [
             run.started_at,
@@ -229,7 +226,33 @@ export async function insertScanRun(
             run.total_deals,
             run.high_risk_count,
             run.errors,
+            run.trigger_source,
             run.summary ? JSON.stringify(run.summary) : null,
+        ]
+    );
+    return rows[0];
+}
+
+export async function updateScanRun(
+    id: number,
+    run: Partial<Omit<ScanRun, 'id' | 'started_at' | 'trigger_source'>>
+): Promise<ScanRun> {
+    const rows = await query<ScanRun>(
+        `UPDATE scan_runs 
+     SET completed_at = $1, 
+         total_deals = $2, 
+         high_risk_count = $3, 
+         errors = $4, 
+         summary = $5
+     WHERE id = $6
+     RETURNING *`,
+        [
+            run.completed_at || null,
+            run.total_deals,
+            run.high_risk_count,
+            run.errors,
+            run.summary ? JSON.stringify(run.summary) : null,
+            id
         ]
     );
     return rows[0];

@@ -32,9 +32,9 @@ The system aggregates signals from:
 
 Built as a serverless-native **Next.js (App Router)** application, designed for easy deployment on **Vercel**.
 
-* **Framework:** Next.js 15+ (TypeScript, React Server Components)
+* **Framework:** Next.js 16 (TypeScript, React Server Components)
 * **Orchestration:** **LangGraph** (`@langchain/langgraph`) for multi-node StateGraph pipelines.
-* **CRON:** Vercel Cron (Runs daily at 6 AM UTC)
+* **CRON:** Vercel Cron (Runs daily at 1 AM UTC)
 * **Database:** Vanilla PostgreSQL (`pg` library) for historical `risk_evaluations` and node outputs.
 * **APIs & Integrations:**
   * `@hubspot/api-client`
@@ -77,7 +77,13 @@ The engine uses a multi-node LangGraph architecture to analyze different attribu
 ### 3. Password Authentication
 All pages and API routes are protected by a shared password set via the `AUTH_PASSWORD` environment variable. Unauthenticated users are redirected to `/login`.
 
-### 4. Daily Scheduled Risk Scan (`/api/cron/risk-scan`)
+### 4. Lost Deal Learnings (`/lost-deals`)
+A dedicated page showing the last evaluation for deals that were marked as closed lost. Allows filtering by pipeline, risk reason, and owner to identify patterns in lost deals and validate the accuracy of earlier risk signals.
+
+### 5. Scan History (`/scan-history`)
+An audit log of all cron and manual risk scan executions. Shows status, duration, deals processed, high-risk count, and errors for each run. Includes a hidden developer panel (activated by 5 rapid title clicks) for triggering manual scans.
+
+### 6. Daily Scheduled Risk Scan (`/api/cron/risk-scan`)
 A Vercel cron job that:
 * **Fetches & Enriches:** Pulls deals across pipelines, adding full activity/transcript context.
 * **Evaluates:** Runs the LangGraph pipeline to generate a structured JSON risk assessment.
@@ -115,7 +121,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 CRON_SECRET=your_secure_random_string
 AUTH_PASSWORD=your_shared_password      # Dashboard login password
 HIGH_RISK_DEAL_VALUE_THRESHOLD=10000
-MRR_ROUTING_THRESHOLD=1200
+MRR_ROUTING_THRESHOLD=10000
 ```
 
 ### 3. Local Development

@@ -35,6 +35,7 @@ function DevScanPanel({ onClose, onScanComplete }: { onClose: () => void; onScan
     const [dealId, setDealId] = useState('');
     const [pipelineId, setPipelineId] = useState('');
     const [scanning, setScanning] = useState(false);
+    const [isCronSim, setIsCronSim] = useState(false);
     const [result, setResult] = useState<string | null>(null);
     const panelRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +70,7 @@ function DevScanPanel({ onClose, onScanComplete }: { onClose: () => void; onScan
             const params = new URLSearchParams();
             if (dealId.trim()) params.set('deal_id', dealId.trim());
             if (pipelineId.trim()) params.set('pipeline_id', pipelineId.trim());
+            params.set('source', isCronSim ? 'cron' : 'manual');
             const qs = params.toString() ? `?${params.toString()}` : '';
 
             const res = await fetch(`/api/cron/risk-scan${qs}`, {
@@ -147,6 +149,19 @@ function DevScanPanel({ onClose, onScanComplete }: { onClose: () => void; onScan
                                 outline: 'none', boxSizing: 'border-box',
                             }}
                         />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+                        <input 
+                            type="checkbox" 
+                            id="cron-sim" 
+                            checked={isCronSim} 
+                            onChange={(e) => setIsCronSim(e.target.checked)}
+                            style={{ cursor: 'pointer' }}
+                        />
+                        <label htmlFor="cron-sim" style={{ fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                            Simulate Cron Run (Log as AUTO)
+                        </label>
                     </div>
 
                     {result && (
@@ -280,6 +295,7 @@ export default function ScanHistoryPage() {
                         <thead>
                             <tr>
                                 <th>Status</th>
+                                <th>Source</th>
                                 <th>Started At</th>
                                 <th>Duration</th>
                                 <th>Deals Processed</th>
@@ -300,6 +316,21 @@ export default function ScanHistoryPage() {
                                                 ⏳ IN PROGRESS
                                             </span>
                                         )}
+                                    </td>
+                                    <td>
+                                        <span style={{ 
+                                            fontSize: '11px', 
+                                            fontWeight: 600, 
+                                            color: run.trigger_source === 'cron' ? '#8b5cf6' : 'var(--text-muted)',
+                                            background: run.trigger_source === 'cron' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(0,0,0,0.05)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            {run.trigger_source === 'cron' ? '🤖 AUTO' : '👤 MANUAL'}
+                                        </span>
                                     </td>
                                     <td className="deal-name">
                                         {formatDate(run.started_at)}
