@@ -52,3 +52,11 @@ CLAUDE.md
 
 # internal documentation
 /docs/*
+
+# agent skills
+/agents/skills/*
+
+# claude commands, skills and config
+/.claude/commands/*
+/.claude/skills/*
+/.claude/*

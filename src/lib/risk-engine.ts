@@ -19,7 +19,7 @@ import {
     isDealOpen,
     fetchOwners,
 } from './hubspot';
-import { PIPELINE_MAP } from './mappings';
+import { PIPELINE_MAP, getNormalizedStage } from './mappings';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
 import { analyzeDealRisk } from './ai-analyzer';
 import { sendHighRiskAlert, sendScanSummary, isSlackConfigured } from './slack';
@@ -110,7 +110,7 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
             deal_name: props.dealname,
             amount: props.hs_mrr ? parseFloat(props.hs_mrr) : (props.amount ? parseFloat(props.amount) : null),
             mrr: props.hs_mrr ? parseFloat(props.hs_mrr) : (props.mrr ? parseFloat(props.mrr) : null),
-            stage: props.deal_stage_name__text_ || props.dealstage,
+            stage: getNormalizedStage(props.deal_stage_name__text_ || props.dealstage, props.pipeline || null),
             pipeline: props.pipeline || null,
             days_in_stage: hsDaysInStage,
             days_since_creation: daysSinceCreation,
@@ -211,7 +211,10 @@ async function processDeal(
                         id: deal.id,
                         name: deal.properties.dealname,
                         amount: amount || null,
-                        stage: deal.properties.dealstage,
+                        stage: getNormalizedStage(
+                            deal.properties.deal_stage_name__text_ || deal.properties.dealstage,
+                            deal.properties.pipeline || null
+                        ),
                         owner: ownerName || deal.properties.hubspot_owner_id,
                     },
                     result
