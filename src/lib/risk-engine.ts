@@ -23,7 +23,7 @@ import { PIPELINE_MAP } from './mappings';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
 import { analyzeDealRisk } from './ai-analyzer';
 import { sendHighRiskAlert, sendScanSummary, isSlackConfigured } from './slack';
-import { insertRiskEvaluation, insertScanRun, updateScanRun, getPreviousEvaluation } from '@/db/queries';
+import { insertRiskEvaluation, insertScanRun, updateScanRun, getPreviousEvaluation } from '../db/queries';
 
 const BATCH_SIZE = 5;
 

@@ -1,7 +1,4 @@
-// ============================================================
-// Database Queries — Raw SQL
-// ============================================================
-
+// Last updated: 2026-03-31 with updateScanRun export
 import { query } from './client';
 import { RiskEvaluation, ScanRun, RiskCounts } from '@/lib/types';
 
