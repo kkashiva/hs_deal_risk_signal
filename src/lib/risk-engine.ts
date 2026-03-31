@@ -23,7 +23,7 @@ import { PIPELINE_MAP } from './mappings';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
 import { analyzeDealRisk } from './ai-analyzer';
 import { sendHighRiskAlert, sendScanSummary, isSlackConfigured } from './slack';
-import { insertRiskEvaluation, insertScanRun, getPreviousEvaluation } from '@/db/queries';
+import { insertRiskEvaluation, insertScanRun, updateScanRun, getPreviousEvaluation } from '@/db/queries';
 
 const BATCH_SIZE = 5;
 
@@ -242,13 +242,30 @@ async function processDeal(
 
 export async function runRiskScan(
     singleDealId?: string,
-    pipelineId?: string
+    pipelineId?: string,
+    triggerSource: 'cron' | 'manual' | 'test' = 'manual'
 ): Promise<ScanResult> {
     const startTime = Date.now();
     console.log(`\n${'='.repeat(60)}`);
     console.log(`Risk scan started at ${new Date().toISOString()}`);
     if (pipelineId) console.log(`Target Pipeline: ${pipelineId}`);
     console.log(`${'='.repeat(60)}\n`);
+
+    // Initial log of scan run to database (before starting)
+    let runRecordId: number | undefined;
+    try {
+        const run = await insertScanRun({
+            started_at: new Date(startTime),
+            completed_at: undefined,
+            total_deals: 0, // Will be updated later
+            high_risk_count: 0,
+            errors: 0,
+            trigger_source: triggerSource,
+        });
+        runRecordId = run.id;
+    } catch (dbError) {
+        console.error('Failed to create scan run record:', dbError);
+    }
 
     let deals: HubSpotDeal[];
     let isSingleDealMode = false;
@@ -272,6 +289,15 @@ export async function runRiskScan(
             console.log(`Skipped ${skippedCount} closed deal(s) (hs_is_open_count ≠ 1)`);
         }
         deals = openDeals;
+    }
+
+    // Update total deals in the run record if we have an ID
+    if (runRecordId) {
+        try {
+            await updateScanRun(runRecordId, { total_deals: deals.length });
+        } catch (dbUpdateError) {
+            console.error('Failed to update scan run with total deals:', dbUpdateError);
+        }
     }
 
     console.log(`Found ${deals.length} deals to analyze\n`);
@@ -326,18 +352,19 @@ export async function runRiskScan(
         duration_ms: durationMs,
     };
 
-    // Log scan run to database
-    try {
-        await insertScanRun({
-            started_at: new Date(startTime),
-            completed_at: new Date(),
-            total_deals: deals.length,
-            high_risk_count: highRisk,
-            errors,
-            summary: result as unknown as Record<string, unknown>,
-        });
-    } catch (dbError) {
-        console.error('Failed to log scan run:', dbError);
+    // Update scan run completion to database
+    if (runRecordId) {
+        try {
+            await updateScanRun(runRecordId, {
+                completed_at: new Date(),
+                total_deals: deals.length,
+                high_risk_count: highRisk,
+                errors,
+                summary: result as unknown as Record<string, unknown>,
+            });
+        } catch (dbError) {
+            console.error('Failed to log scan run completion:', dbError);
+        }
     }
 
     // Send Slack summary

@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
         const pipelineId = request.nextUrl.searchParams.get('pipeline_id') || undefined;
 
         // Run the risk scan
-        const result = await runRiskScan(dealId, pipelineId);
+        const source = (request.nextUrl.searchParams.get('source') as 'cron' | 'manual' | 'test') || 'cron';
+        const result = await runRiskScan(dealId, pipelineId, source);
 
         return NextResponse.json({
             success: true,

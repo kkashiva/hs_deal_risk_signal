@@ -152,6 +152,7 @@ export interface ScanRun {
   total_deals: number;
   high_risk_count: number;
   errors: number;
+  trigger_source: 'cron' | 'manual' | 'test';
   summary?: Record<string, unknown>;
 }
 
