@@ -1,4 +1,5 @@
 import { auth } from '@/lib/auth/server';
+import { isEmailDomainAllowed } from '@/lib/allowed-domains';
 import { upsertUserActivity } from '@/db/queries';
 
 const ACTIVITY_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
@@ -10,6 +11,7 @@ const lastLoginUpdate = new Map<string, number>();
 export async function getCurrentUser(): Promise<{ userId: string; email: string } | null> {
     const { data: session } = await auth.getSession();
     if (!session?.user) return null;
+    if (!isEmailDomainAllowed(session.user.email)) return null;
 
     const userId = session.user.id;
     const now = Date.now();
