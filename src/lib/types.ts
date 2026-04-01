@@ -154,6 +154,14 @@ export interface ScanRun {
   errors: number;
   trigger_source: 'cron' | 'manual' | 'test';
   summary?: Record<string, unknown>;
+  user_id?: string | null;
+  user_email?: string | null;  // from JOIN, for display
+}
+
+export interface UserActivity {
+  user_id: string;
+  last_login_at: Date | null;
+  last_active_at: Date | null;
 }
 
 export interface RiskCounts {

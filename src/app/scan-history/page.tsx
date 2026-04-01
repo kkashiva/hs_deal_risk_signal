@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ScanRun } from '@/lib/types';
 import Link from 'next/link';
+import { authClient } from '@/lib/auth/client';
 
 function formatDate(date: Date | string | undefined): string {
     if (!date) return '—';
@@ -71,6 +72,15 @@ function DevScanPanel({ onClose, onScanComplete }: { onClose: () => void; onScan
             if (dealId.trim()) params.set('deal_id', dealId.trim());
             if (pipelineId.trim()) params.set('pipeline_id', pipelineId.trim());
             params.set('source', isCronSim ? 'cron' : 'manual');
+
+            // Pass user_id for manual scan attribution
+            if (!isCronSim) {
+                try {
+                    const { data: session } = await authClient.getSession();
+                    if (session?.user?.id) params.set('user_id', session.user.id);
+                } catch { /* session unavailable — scan proceeds without user attribution */ }
+            }
+
             const qs = params.toString() ? `?${params.toString()}` : '';
 
             const res = await fetch(`/api/cron/risk-scan${qs}`, {
@@ -329,7 +339,7 @@ export default function ScanHistoryPage() {
                                             alignItems: 'center',
                                             gap: '4px'
                                         }}>
-                                            {run.trigger_source === 'cron' ? '🤖 AUTO' : '👤 MANUAL'}
+                                            {run.trigger_source === 'cron' ? '🤖 AUTO' : `👤 MANUAL${run.user_email ? ` (${run.user_email})` : ''}`}
                                         </span>
                                     </td>
                                     <td className="deal-name">

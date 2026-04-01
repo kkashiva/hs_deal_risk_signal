@@ -54,8 +54,9 @@ GONG_ACCESS_KEY=your_key
 GONG_ACCESS_SECRET=your_secret
 GEMINI_API_KEY=your_key
 DATABASE_URL=postgresql://user:pass@localhost/hs_deal_risk
-AUTH_PASSWORD=dev_password
 CRON_SECRET=your_secret
+NEON_AUTH_BASE_URL=https://ep-xxx.neonauth.<region>.aws.neon.tech/<dbname>/auth
+NEON_AUTH_COOKIE_SECRET=<openssl rand -base64 32>
 ```
 
 4. **Database Setup** (if working with database features)
@@ -69,6 +70,11 @@ psql hs_deal_risk < src/db/migrations/002_add_pipeline.sql
 psql hs_deal_risk < src/db/migrations/003_add_deal_context.sql
 psql hs_deal_risk < src/db/migrations/004_add_is_deal_open.sql
 psql hs_deal_risk < src/db/migrations/005_add_node_outputs.sql
+psql hs_deal_risk < src/db/migrations/006_add_owner_name.sql
+psql hs_deal_risk < src/db/migrations/007_add_risk_type_change_date.sql
+psql hs_deal_risk < src/db/migrations/008_add_scan_run_trigger.sql
+psql hs_deal_risk < src/db/migrations/009_normalize_stages.sql
+psql hs_deal_risk < src/db/migrations/010_add_user_activity.sql
 ```
 
 5. **Start Development Server**
@@ -83,16 +89,20 @@ hs_deal_risk_signal/
 ├── src/
 │   ├── app/                    # Next.js App Router pages & layouts
 │   │   ├── dashboard-client.tsx   # Main dashboard component
-│   │   ├── login/              # Authentication page
+│   │   ├── login/              # Google OAuth sign-in page
 │   │   ├── deal/               # Deal detail pages
 │   │   └── api/                # API routes
+│   │       ├── auth/[...path]/ # Neon Auth catch-all handler
 │   │       ├── cron/           # Scheduled cron jobs (triggers risk-engine)
 │   │       ├── deals/          # Deal endpoints
 │   ├── db/                     # Database utilities
-│   │   ├── migrations/         # SQL migrations (001-005)
+│   │   ├── migrations/         # SQL migrations (001-010)
 │   │   └── queries.ts          # Database query functions
 │   ├── lib/                    # Core Logic & Integrations
-│   │   ├── ai-graph.ts         # NEW: LangGraph StateGraph pipeline logic
+│   │   ├── auth/server.ts      # Neon Auth server instance
+│   │   ├── auth/client.ts      # Neon Auth client instance
+│   │   ├── auth-helpers.ts     # getCurrentUser() + activity tracking
+│   │   ├── ai-graph.ts         # LangGraph StateGraph pipeline logic
 │   │   ├── ai-analyzer.ts      # Bridge to LangGraph / multi-provider routing
 │   │   ├── risk-engine.ts      # Data orchestration (HubSpot -> AI -> DB/Slack)
 │   │   ├── hubspot.ts          # HubSpot API client

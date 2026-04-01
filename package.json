@@ -16,6 +16,7 @@
     "@langchain/core": "^1.1.32",
     "@langchain/google-genai": "^2.1.25",
     "@langchain/langgraph": "^1.2.2",
+    "@neondatabase/auth": "^0.2.0-beta.1",
     "@slack/webhook": "^7.0.7",
     "@vercel/analytics": "^2.0.1",
     "axios": "^1.13.5",

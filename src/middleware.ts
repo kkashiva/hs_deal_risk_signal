@@ -1,35 +1,31 @@
 // ============================================================
-// Auth Middleware — Redirect unauthenticated users to /login
+// Auth Middleware — Neon Auth route protection
 // ============================================================
 
+import { auth } from '@/lib/auth/server';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Paths that don't require authentication
-const PUBLIC_PATHS = ['/login', '/api/auth', '/api/cron'];
+const API_PATHS = ['/api'];
 const STATIC_PREFIXES = ['/_next', '/favicon.ico'];
 
-export function middleware(req: NextRequest) {
-    const { pathname } = req.nextUrl;
+const authMiddleware = auth.middleware({ loginUrl: '/login' });
 
-    // Allow public paths & static assets through
+export default function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
+
+    // Allow API routes and static assets through without auth
     if (
-        PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
-        STATIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
-        pathname.includes('.')  // static files (images, svgs, etc.)
+        API_PATHS.some(p => pathname.startsWith(p)) ||
+        STATIC_PREFIXES.some(p => pathname.startsWith(p)) ||
+        pathname.includes('.')
     ) {
         return NextResponse.next();
     }
 
-    // Check for auth cookie
-    const token = req.cookies.get('auth_token')?.value;
+    // Skip middleware for Server Actions
+    if (request.headers.has('Next-Action')) return;
 
-    if (!token) {
-        const loginUrl = req.nextUrl.clone();
-        loginUrl.pathname = '/login';
-        return NextResponse.redirect(loginUrl);
-    }
-
-    return NextResponse.next();
+    return authMiddleware(request);
 }
 
 export const config = {

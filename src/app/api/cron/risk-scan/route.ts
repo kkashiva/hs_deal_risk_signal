@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runRiskScan } from '@/lib/risk-engine';
 import { ensureCustomProperties } from '@/lib/hubspot';
+import { getCurrentUser } from '@/lib/auth-helpers';
 
 export const maxDuration = 300; // 5 minutes (up to 900 on Vercel Pro)
 
@@ -27,7 +28,15 @@ export async function GET(request: NextRequest) {
 
         // Run the risk scan
         const source = (request.nextUrl.searchParams.get('source') as 'cron' | 'manual' | 'test') || 'cron';
-        const result = await runRiskScan(dealId, pipelineId, source);
+
+        // Extract user for manual scans (server session or client-provided fallback)
+        let userId: string | null = null;
+        if (source === 'manual') {
+            const user = await getCurrentUser();
+            userId = user?.userId ?? request.nextUrl.searchParams.get('user_id') ?? null;
+        }
+
+        const result = await runRiskScan(dealId, pipelineId, source, userId);
 
         return NextResponse.json({
             success: true,

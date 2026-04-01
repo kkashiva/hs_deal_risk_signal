@@ -246,7 +246,8 @@ async function processDeal(
 export async function runRiskScan(
     singleDealId?: string,
     pipelineId?: string,
-    triggerSource: 'cron' | 'manual' | 'test' = 'manual'
+    triggerSource: 'cron' | 'manual' | 'test' = 'manual',
+    userId?: string | null
 ): Promise<ScanResult> {
     const startTime = Date.now();
     console.log(`\n${'='.repeat(60)}`);
@@ -264,6 +265,7 @@ export async function runRiskScan(
             high_risk_count: 0,
             errors: 0,
             trigger_source: triggerSource,
+            user_id: userId ?? null,
         });
         runRecordId = run.id;
     } catch (dbError) {

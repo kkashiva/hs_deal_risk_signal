@@ -1,6 +1,6 @@
 // Last updated: 2026-03-31 with updateScanRun export
 import { query } from './client';
-import { RiskEvaluation, ScanRun, RiskCounts } from '@/lib/types';
+import { RiskEvaluation, ScanRun, RiskCounts, UserActivity } from '@/lib/types';
 
 // Subquery that identifies deal_ids whose most recent evaluation is closed.
 // Used to fully exclude lost deals from all dashboard queries.
@@ -217,8 +217,8 @@ export async function insertScanRun(
     run: Omit<ScanRun, 'id'>
 ): Promise<ScanRun> {
     const rows = await query<ScanRun>(
-        `INSERT INTO scan_runs (started_at, completed_at, total_deals, high_risk_count, errors, trigger_source, summary)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO scan_runs (started_at, completed_at, total_deals, high_risk_count, errors, trigger_source, summary, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
         [
             run.started_at,
@@ -228,6 +228,7 @@ export async function insertScanRun(
             run.errors,
             run.trigger_source,
             run.summary ? JSON.stringify(run.summary) : null,
+            run.user_id || null,
         ]
     );
     return rows[0];
@@ -260,7 +261,47 @@ export async function updateScanRun(
 
 export async function getRecentScanRuns(limit = 20): Promise<ScanRun[]> {
     return query<ScanRun>(
-        `SELECT * FROM scan_runs ORDER BY started_at DESC LIMIT $1`,
+        `SELECT sr.*, u.email as user_email
+     FROM scan_runs sr
+     LEFT JOIN neon_auth."user" u ON sr.user_id = u.id
+     ORDER BY sr.started_at DESC LIMIT $1`,
         [limit]
     );
+}
+
+// --- User Activity ---
+
+export async function upsertUserActivity(
+    userId: string,
+    fields: { last_login_at?: Date; last_active_at?: Date }
+): Promise<void> {
+    const setClauses: string[] = [];
+    const params: unknown[] = [userId];
+    let paramIndex = 2;
+
+    if (fields.last_login_at) {
+        setClauses.push(`last_login_at = $${paramIndex++}`);
+        params.push(fields.last_login_at);
+    }
+    if (fields.last_active_at) {
+        setClauses.push(`last_active_at = $${paramIndex++}`);
+        params.push(fields.last_active_at);
+    }
+
+    if (setClauses.length === 0) return;
+
+    await query(
+        `INSERT INTO user_activity (user_id, ${setClauses.map(c => c.split(' = ')[0]).join(', ')})
+     VALUES ($1, ${params.slice(1).map((_, i) => `$${i + 2}`).join(', ')})
+     ON CONFLICT (user_id) DO UPDATE SET ${setClauses.join(', ')}`,
+        params
+    );
+}
+
+export async function getUserActivity(userId: string): Promise<UserActivity | null> {
+    const rows = await query<UserActivity>(
+        `SELECT * FROM user_activity WHERE user_id = $1`,
+        [userId]
+    );
+    return rows.length > 0 ? rows[0] : null;
 }
