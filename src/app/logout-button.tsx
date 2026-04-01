@@ -1,23 +1,32 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { authClient } from '@/lib/auth/client';
 
 export function LogoutButton() {
-    const router = useRouter();
     const pathname = usePathname();
+    const { data: session } = authClient.useSession();
 
     // Don't show logout button on the login page
     if (pathname === '/login') return null;
 
     async function handleLogout() {
-        await fetch('/api/auth', { method: 'DELETE' });
-        router.push('/login');
-        router.refresh();
+        await authClient.signOut();
+        window.location.href = '/login';
     }
 
+    const email = session?.user?.email;
+
     return (
-        <button className="btn btn-sm btn-danger" onClick={handleLogout}>
-            🔒 Logout
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {email && (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {email}
+                </span>
+            )}
+            <button className="btn btn-sm btn-danger" onClick={handleLogout}>
+                Logout
+            </button>
+        </div>
     );
 }
