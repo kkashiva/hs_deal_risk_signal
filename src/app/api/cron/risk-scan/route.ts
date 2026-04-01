@@ -29,11 +29,11 @@ export async function GET(request: NextRequest) {
         // Run the risk scan
         const source = (request.nextUrl.searchParams.get('source') as 'cron' | 'manual' | 'test') || 'cron';
 
-        // Extract user for manual scans
+        // Extract user for manual scans (server session or client-provided fallback)
         let userId: string | null = null;
         if (source === 'manual') {
             const user = await getCurrentUser();
-            userId = user?.userId ?? null;
+            userId = user?.userId ?? request.nextUrl.searchParams.get('user_id') ?? null;
         }
 
         const result = await runRiskScan(dealId, pipelineId, source, userId);
