@@ -329,7 +329,7 @@ export default function ScanHistoryPage() {
                                             alignItems: 'center',
                                             gap: '4px'
                                         }}>
-                                            {run.trigger_source === 'cron' ? '🤖 AUTO' : '👤 MANUAL'}
+                                            {run.trigger_source === 'cron' ? '🤖 AUTO' : `👤 MANUAL${run.user_email ? ` (${run.user_email})` : ''}`}
                                         </span>
                                     </td>
                                     <td className="deal-name">
