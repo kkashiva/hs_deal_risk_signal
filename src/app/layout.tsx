@@ -4,17 +4,20 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Analytics } from "@vercel/analytics/next";
 import { LogoutButton } from './logout-button';
+import { getCurrentUser } from '@/lib/auth-helpers';
 
 export const metadata: Metadata = {
   title: "Sales Deal Risk Engine — AI Early Warning",
   description: "AI-powered deal risk detection for HubSpot. Detect risk signals before deals are lost.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Track user activity + login on every page load (throttled in getCurrentUser)
+  await getCurrentUser().catch(() => {});
   return (
     <html lang="en">
       <body>
