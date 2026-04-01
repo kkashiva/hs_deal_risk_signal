@@ -43,7 +43,7 @@ Built as a serverless-native **Next.js (App Router)** application, designed for 
   * Anthropic Claude (`@anthropic-ai/sdk`)
   * Slack Webhooks (`@slack/webhook`)
 * **Styling:** Vanilla CSS (`globals.css`) for a sleek, dark-mode, glassmorphic UI.
-* **Auth:** Shared-password gate via Next.js middleware + HttpOnly cookie.
+* **Auth:** Neon Auth (Google OAuth) via `@neondatabase/auth` — managed auth with session cookies, no shared passwords.
 
 ---
 
@@ -74,8 +74,8 @@ A deep dive showing the current assessment, AI explanation, recommended action, 
 
 The engine uses a multi-node LangGraph architecture to analyze different attributes of each deal, then outputs a final result. This reduces prompt "hallucination" and ensures high-fidelity extraction from long email threads and transcripts.
 
-### 3. Password Authentication
-All pages and API routes are protected by a shared password set via the `AUTH_PASSWORD` environment variable. Unauthenticated users are redirected to `/login`.
+### 3. User Authentication (Google OAuth)
+All pages are protected by Neon Auth with Google OAuth sign-in. Users authenticate via their Google account and sessions are managed automatically. The system tracks user identity — manual scans are attributed to the user who triggered them. API routes are exempt from the auth redirect (they are called from already-authenticated pages).
 
 ### 4. Lost Deal Learnings (`/lost-deals`)
 A dedicated page showing the last evaluation for deals that were marked as closed lost. Allows filtering by pipeline, risk reason, and owner to identify patterns in lost deals and validate the accuracy of earlier risk signals.
@@ -105,6 +105,9 @@ psql $DATABASE_URL < src/db/migrations/004_add_is_deal_open.sql
 psql $DATABASE_URL < src/db/migrations/005_add_node_outputs.sql
 psql $DATABASE_URL < src/db/migrations/006_add_owner_name.sql
 psql $DATABASE_URL < src/db/migrations/007_add_risk_type_change_date.sql
+psql $DATABASE_URL < src/db/migrations/008_add_scan_run_trigger.sql
+psql $DATABASE_URL < src/db/migrations/009_normalize_stages.sql
+psql $DATABASE_URL < src/db/migrations/010_add_user_activity.sql
 ```
 
 ### 2. Environment Variables
@@ -119,7 +122,8 @@ ANTHROPIC_API_KEY=your_claude_key       # Optional
 DATABASE_URL=postgresql://user:pass@host/db
 SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 CRON_SECRET=your_secure_random_string
-AUTH_PASSWORD=your_shared_password      # Dashboard login password
+NEON_AUTH_BASE_URL=https://ep-xxx.neonauth.<region>.aws.neon.tech/<dbname>/auth
+NEON_AUTH_COOKIE_SECRET=<openssl rand -base64 32>
 HIGH_RISK_DEAL_VALUE_THRESHOLD=10000
 MRR_ROUTING_THRESHOLD=10000
 ```
