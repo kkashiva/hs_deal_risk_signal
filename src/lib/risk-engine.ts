@@ -265,6 +265,7 @@ export async function runRiskScan(
             high_risk_count: 0,
             errors: 0,
             trigger_source: triggerSource,
+            user_id: userId ?? null,
         });
         runRecordId = run.id;
     } catch (dbError) {
