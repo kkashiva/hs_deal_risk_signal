@@ -246,7 +246,8 @@ async function processDeal(
 export async function runRiskScan(
     singleDealId?: string,
     pipelineId?: string,
-    triggerSource: 'cron' | 'manual' | 'test' = 'manual'
+    triggerSource: 'cron' | 'manual' | 'test' = 'manual',
+    userId?: string | null
 ): Promise<ScanResult> {
     const startTime = Date.now();
     console.log(`\n${'='.repeat(60)}`);
