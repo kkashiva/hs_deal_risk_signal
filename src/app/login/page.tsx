@@ -4,13 +4,22 @@
 // Login Page — Google OAuth via Neon Auth
 // ============================================================
 
-import { useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { authClient } from '@/lib/auth/client';
 
-export default function LoginPage() {
+function LoginForm() {
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (searchParams.get('error') === 'domain') {
+            setError('Access is restricted to authorized email domains.');
+            authClient.signOut().catch(() => {});
+        }
+    }, [searchParams]);
 
     async function handleGoogleSignIn() {
         setError('');
@@ -62,5 +71,13 @@ export default function LoginPage() {
                 </button>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense>
+            <LoginForm />
+        </Suspense>
     );
 }
