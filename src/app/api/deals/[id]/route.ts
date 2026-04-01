@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEvaluationsForDeal } from '@/db/queries';
 import { runRiskScan } from '@/lib/risk-engine';
+import { getCurrentUser } from '@/lib/auth-helpers';
 
 export async function GET(
     request: NextRequest,
@@ -35,7 +36,9 @@ export async function POST(
 ) {
     try {
         const { id } = await params;
-        const result = await runRiskScan(id);
+        const user = await getCurrentUser().catch(() => null);
+        const userId = user?.userId ?? request.nextUrl.searchParams.get('user_id') ?? null;
+        const result = await runRiskScan(id, undefined, 'manual', userId);
 
         return NextResponse.json({
             success: true,

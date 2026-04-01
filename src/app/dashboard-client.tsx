@@ -8,6 +8,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { RiskEvaluation, RiskCounts } from '@/lib/types';
 import { PIPELINE_MAP, STAGE_MAP, getNormalizedStage } from '@/lib/mappings';
+import { authClient } from '@/lib/auth/client';
 import type {
     DashboardView,
     DashboardViewsState,
@@ -580,7 +581,13 @@ export function DashboardView({
                 setScanning(false);
                 return;
             }
-            const res = await fetch('/api/cron/risk-scan', {
+            const params = new URLSearchParams({ source: 'manual' });
+            try {
+                const { data: session } = await authClient.getSession();
+                if (session?.user?.id) params.set('user_id', session.user.id);
+            } catch { /* proceed without user attribution */ }
+
+            const res = await fetch(`/api/cron/risk-scan?${params}`, {
                 headers: { Authorization: `Bearer ${secret}` },
             });
             const data = await res.json();
