@@ -505,15 +505,15 @@ export function DashboardView({
     // Filter and Sort evaluations client-side and normalize stages
     const filteredAndSortedEvaluations = useMemo(() => {
         const filtered = evaluations.filter((e: RiskEvaluation) => {
-            if (filterPipeline && e.pipeline !== filterPipeline) return false;
+            if (filterPipeline.length > 0 && !filterPipeline.includes(e.pipeline)) return false;
             if (filterRisk && e.risk_level !== filterRisk) return false;
             if (filterReason && e.risk_reason !== filterReason) return false;
 
             const rawStage = (e.deal_metadata as Record<string, unknown>)?.stage as string | undefined;
             const normalizedStage = getNormalizedStage(rawStage, e.pipeline);
-            if (filterStage && normalizedStage !== filterStage) return false;
+            if (filterStage.length > 0 && (!normalizedStage || !filterStage.includes(normalizedStage))) return false;
 
-            if (filterOwner && e.owner_name !== filterOwner) return false;
+            if (filterOwner.length > 0 && (!e.owner_name || !filterOwner.includes(e.owner_name))) return false;
 
             const amount = e.deal_amount || 0;
             if (filterAmountMin && amount < Number(filterAmountMin)) return false;
@@ -699,7 +699,7 @@ export function DashboardView({
         }
     }
 
-    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterOwner || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax || filterRiskChangeMin || filterRiskChangeMax;
+    const hasActiveFilters = filterPipeline.length > 0 || filterRisk || filterReason || filterStage.length > 0 || filterOwner.length > 0 || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax || filterRiskChangeMin || filterRiskChangeMax;
 
     function toggleRiskFilter(level: string) {
         if (filterRisk === level) {
@@ -824,11 +824,11 @@ export function DashboardView({
                         <button
                             className="btn btn-sm"
                             onClick={() => {
-                                setFilterPipeline('');
+                                setFilterPipeline([]);
                                 setFilterRisk('');
                                 setFilterReason('');
-                                setFilterStage('');
-                                setFilterOwner('');
+                                setFilterStage([]);
+                                setFilterOwner([]);
                                 setFilterAmountMin('');
                                 setFilterAmountMax('');
                                 setFilterCloseMin('');
@@ -889,16 +889,13 @@ export function DashboardView({
 
                 {/* Filter Dropdowns */}
                 <div className="filter-row">
-                    <select
-                        className="filter-select"
-                        value={filterPipeline}
-                        onChange={(e) => setFilterPipeline(e.target.value)}
-                    >
-                        <option value="">All Pipelines</option>
-                        {pipelines.map(p => (
-                            <option key={p} value={p}>{PIPELINE_MAP[p] || p}</option>
-                        ))}
-                    </select>
+                    <MultiSelect
+                        options={pipelines}
+                        selected={filterPipeline}
+                        onChange={setFilterPipeline}
+                        placeholder="All Pipelines"
+                        renderLabel={(p) => PIPELINE_MAP[p] || p}
+                    />
 
                     <select
                         className="filter-select"
@@ -924,27 +921,19 @@ export function DashboardView({
                         ))}
                     </select>
 
-                    <select
-                        className="filter-select"
-                        value={filterStage}
-                        onChange={(e) => setFilterStage(e.target.value)}
-                    >
-                        <option value="">All Stages</option>
-                        {uniqueNormalizedStages.map(s => (
-                            <option key={s} value={s}>{s}</option>
-                        ))}
-                    </select>
+                    <MultiSelect
+                        options={uniqueNormalizedStages}
+                        selected={filterStage}
+                        onChange={setFilterStage}
+                        placeholder="All Stages"
+                    />
 
-                    <select
-                        className="filter-select"
-                        value={filterOwner}
-                        onChange={(e) => setFilterOwner(e.target.value)}
-                    >
-                        <option value="">All Owners</option>
-                        {owners.map(o => (
-                            <option key={o} value={o}>{o}</option>
-                        ))}
-                    </select>
+                    <MultiSelect
+                        options={owners}
+                        selected={filterOwner}
+                        onChange={setFilterOwner}
+                        placeholder="All Owners"
+                    />
 
                     <div className="filter-amount-group">
                         <span className="filter-label">Amount:</span>
