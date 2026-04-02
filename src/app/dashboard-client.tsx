@@ -402,11 +402,11 @@ export function DashboardView({
     }, [viewsState]);
 
     // Convenience accessors
-    const filterPipeline = activeView?.filters.pipeline ?? '';
+    const filterPipeline = activeView?.filters.pipeline ?? [];
     const filterRisk = activeView?.filters.risk ?? '';
     const filterReason = activeView?.filters.reason ?? '';
-    const filterStage = activeView?.filters.stage ?? '';
-    const filterOwner = activeView?.filters.owner ?? '';
+    const filterStage = activeView?.filters.stage ?? [];
+    const filterOwner = activeView?.filters.owner ?? [];
     const filterAmountMin = activeView?.filters.amountMin ?? '';
     const filterAmountMax = activeView?.filters.amountMax ?? '';
     const filterCloseMin = activeView?.filters.closeMin ?? '';
@@ -429,11 +429,11 @@ export function DashboardView({
         });
     }, []);
 
-    const setFilterPipeline = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, pipeline: val } }));
+    const setFilterPipeline = (val: string[]) => updateActiveView(v => ({ ...v, filters: { ...v.filters, pipeline: val } }));
     const setFilterRisk = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, risk: val } }));
     const setFilterReason = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, reason: val } }));
-    const setFilterStage = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, stage: val } }));
-    const setFilterOwner = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, owner: val } }));
+    const setFilterStage = (val: string[]) => updateActiveView(v => ({ ...v, filters: { ...v.filters, stage: val } }));
+    const setFilterOwner = (val: string[]) => updateActiveView(v => ({ ...v, filters: { ...v.filters, owner: val } }));
     const setFilterAmountMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMin: val } }));
     const setFilterAmountMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMax: val } }));
     const setFilterCloseMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, closeMin: val } }));
