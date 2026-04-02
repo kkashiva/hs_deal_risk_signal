@@ -260,6 +260,80 @@ function CustomDatePicker({ value, onChange, placeholder, align = 'left' }: { va
     );
 }
 
+function MultiSelect({ options, selected, onChange, placeholder, renderLabel }: {
+    options: string[];
+    selected: string[];
+    onChange: (val: string[]) => void;
+    placeholder: string;
+    renderLabel?: (val: string) => string;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => { document.removeEventListener('mousedown', handleClickOutside); };
+    }, [isOpen]);
+
+    const toggle = (val: string) => {
+        if (selected.includes(val)) {
+            onChange(selected.filter(v => v !== val));
+        } else {
+            onChange([...selected, val]);
+        }
+    };
+
+    const label = renderLabel || ((v: string) => v);
+
+    return (
+        <div className="multi-select-container" ref={containerRef}>
+            <button
+                className={`filter-select multi-select-trigger ${selected.length > 0 ? 'has-selection' : ''}`}
+                onClick={() => setIsOpen(!isOpen)}
+                type="button"
+            >
+                <span className="multi-select-label">
+                    {selected.length === 0
+                        ? placeholder
+                        : selected.length === 1
+                            ? label(selected[0])
+                            : `${selected.length} selected`}
+                </span>
+                {selected.length > 0 && (
+                    <span
+                        className="multi-select-clear"
+                        onClick={(e) => { e.stopPropagation(); onChange([]); }}
+                        title="Clear"
+                    >
+                        ×
+                    </span>
+                )}
+            </button>
+            {isOpen && (
+                <div className="multi-select-dropdown">
+                    {options.map(opt => (
+                        <label key={opt} className="multi-select-option">
+                            <input
+                                type="checkbox"
+                                checked={selected.includes(opt)}
+                                onChange={() => toggle(opt)}
+                            />
+                            <span>{label(opt)}</span>
+                        </label>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function PipelineBreakdown({ breakdown }: { breakdown: Record<string, number> }) {
     if (!breakdown || Object.keys(breakdown).length === 0) return null;
 
