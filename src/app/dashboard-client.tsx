@@ -260,6 +260,80 @@ function CustomDatePicker({ value, onChange, placeholder, align = 'left' }: { va
     );
 }
 
+function MultiSelect({ options, selected, onChange, placeholder, renderLabel }: {
+    options: string[];
+    selected: string[];
+    onChange: (val: string[]) => void;
+    placeholder: string;
+    renderLabel?: (val: string) => string;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => { document.removeEventListener('mousedown', handleClickOutside); };
+    }, [isOpen]);
+
+    const toggle = (val: string) => {
+        if (selected.includes(val)) {
+            onChange(selected.filter(v => v !== val));
+        } else {
+            onChange([...selected, val]);
+        }
+    };
+
+    const label = renderLabel || ((v: string) => v);
+
+    return (
+        <div className="multi-select-container" ref={containerRef}>
+            <button
+                className={`filter-select multi-select-trigger ${selected.length > 0 ? 'has-selection' : ''}`}
+                onClick={() => setIsOpen(!isOpen)}
+                type="button"
+            >
+                <span className="multi-select-label">
+                    {selected.length === 0
+                        ? placeholder
+                        : selected.length === 1
+                            ? label(selected[0])
+                            : `${selected.length} selected`}
+                </span>
+                {selected.length > 0 && (
+                    <span
+                        className="multi-select-clear"
+                        onClick={(e) => { e.stopPropagation(); onChange([]); }}
+                        title="Clear"
+                    >
+                        ×
+                    </span>
+                )}
+            </button>
+            {isOpen && (
+                <div className="multi-select-dropdown">
+                    {options.map(opt => (
+                        <label key={opt} className="multi-select-option">
+                            <input
+                                type="checkbox"
+                                checked={selected.includes(opt)}
+                                onChange={() => toggle(opt)}
+                            />
+                            <span>{label(opt)}</span>
+                        </label>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function PipelineBreakdown({ breakdown }: { breakdown: Record<string, number> }) {
     if (!breakdown || Object.keys(breakdown).length === 0) return null;
 
@@ -328,11 +402,11 @@ export function DashboardView({
     }, [viewsState]);
 
     // Convenience accessors
-    const filterPipeline = activeView?.filters.pipeline ?? '';
+    const filterPipeline = activeView?.filters.pipeline ?? [];
     const filterRisk = activeView?.filters.risk ?? '';
     const filterReason = activeView?.filters.reason ?? '';
-    const filterStage = activeView?.filters.stage ?? '';
-    const filterOwner = activeView?.filters.owner ?? '';
+    const filterStage = activeView?.filters.stage ?? [];
+    const filterOwner = activeView?.filters.owner ?? [];
     const filterAmountMin = activeView?.filters.amountMin ?? '';
     const filterAmountMax = activeView?.filters.amountMax ?? '';
     const filterCloseMin = activeView?.filters.closeMin ?? '';
@@ -355,11 +429,11 @@ export function DashboardView({
         });
     }, []);
 
-    const setFilterPipeline = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, pipeline: val } }));
+    const setFilterPipeline = (val: string[]) => updateActiveView(v => ({ ...v, filters: { ...v.filters, pipeline: val } }));
     const setFilterRisk = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, risk: val } }));
     const setFilterReason = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, reason: val } }));
-    const setFilterStage = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, stage: val } }));
-    const setFilterOwner = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, owner: val } }));
+    const setFilterStage = (val: string[]) => updateActiveView(v => ({ ...v, filters: { ...v.filters, stage: val } }));
+    const setFilterOwner = (val: string[]) => updateActiveView(v => ({ ...v, filters: { ...v.filters, owner: val } }));
     const setFilterAmountMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMin: val } }));
     const setFilterAmountMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, amountMax: val } }));
     const setFilterCloseMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, closeMin: val } }));
@@ -431,15 +505,15 @@ export function DashboardView({
     // Filter and Sort evaluations client-side and normalize stages
     const filteredAndSortedEvaluations = useMemo(() => {
         const filtered = evaluations.filter((e: RiskEvaluation) => {
-            if (filterPipeline && e.pipeline !== filterPipeline) return false;
+            if (filterPipeline.length > 0 && (!e.pipeline || !filterPipeline.includes(e.pipeline))) return false;
             if (filterRisk && e.risk_level !== filterRisk) return false;
             if (filterReason && e.risk_reason !== filterReason) return false;
 
             const rawStage = (e.deal_metadata as Record<string, unknown>)?.stage as string | undefined;
             const normalizedStage = getNormalizedStage(rawStage, e.pipeline);
-            if (filterStage && normalizedStage !== filterStage) return false;
+            if (filterStage.length > 0 && (!normalizedStage || !filterStage.includes(normalizedStage))) return false;
 
-            if (filterOwner && e.owner_name !== filterOwner) return false;
+            if (filterOwner.length > 0 && (!e.owner_name || !filterOwner.includes(e.owner_name))) return false;
 
             const amount = e.deal_amount || 0;
             if (filterAmountMin && amount < Number(filterAmountMin)) return false;
@@ -625,7 +699,7 @@ export function DashboardView({
         }
     }
 
-    const hasActiveFilters = filterPipeline || filterRisk || filterReason || filterStage || filterOwner || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax || filterRiskChangeMin || filterRiskChangeMax;
+    const hasActiveFilters = filterPipeline.length > 0 || filterRisk || filterReason || filterStage.length > 0 || filterOwner.length > 0 || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax || filterRiskChangeMin || filterRiskChangeMax;
 
     function toggleRiskFilter(level: string) {
         if (filterRisk === level) {
@@ -750,11 +824,11 @@ export function DashboardView({
                         <button
                             className="btn btn-sm"
                             onClick={() => {
-                                setFilterPipeline('');
+                                setFilterPipeline([]);
                                 setFilterRisk('');
                                 setFilterReason('');
-                                setFilterStage('');
-                                setFilterOwner('');
+                                setFilterStage([]);
+                                setFilterOwner([]);
                                 setFilterAmountMin('');
                                 setFilterAmountMax('');
                                 setFilterCloseMin('');
@@ -815,16 +889,13 @@ export function DashboardView({
 
                 {/* Filter Dropdowns */}
                 <div className="filter-row">
-                    <select
-                        className="filter-select"
-                        value={filterPipeline}
-                        onChange={(e) => setFilterPipeline(e.target.value)}
-                    >
-                        <option value="">All Pipelines</option>
-                        {pipelines.map(p => (
-                            <option key={p} value={p}>{PIPELINE_MAP[p] || p}</option>
-                        ))}
-                    </select>
+                    <MultiSelect
+                        options={pipelines}
+                        selected={filterPipeline}
+                        onChange={setFilterPipeline}
+                        placeholder="All Pipelines"
+                        renderLabel={(p) => PIPELINE_MAP[p] || p}
+                    />
 
                     <select
                         className="filter-select"
@@ -850,27 +921,19 @@ export function DashboardView({
                         ))}
                     </select>
 
-                    <select
-                        className="filter-select"
-                        value={filterStage}
-                        onChange={(e) => setFilterStage(e.target.value)}
-                    >
-                        <option value="">All Stages</option>
-                        {uniqueNormalizedStages.map(s => (
-                            <option key={s} value={s}>{s}</option>
-                        ))}
-                    </select>
+                    <MultiSelect
+                        options={uniqueNormalizedStages}
+                        selected={filterStage}
+                        onChange={setFilterStage}
+                        placeholder="All Stages"
+                    />
 
-                    <select
-                        className="filter-select"
-                        value={filterOwner}
-                        onChange={(e) => setFilterOwner(e.target.value)}
-                    >
-                        <option value="">All Owners</option>
-                        {owners.map(o => (
-                            <option key={o} value={o}>{o}</option>
-                        ))}
-                    </select>
+                    <MultiSelect
+                        options={owners}
+                        selected={filterOwner}
+                        onChange={setFilterOwner}
+                        placeholder="All Owners"
+                    />
 
                     <div className="filter-amount-group">
                         <span className="filter-label">Amount:</span>
