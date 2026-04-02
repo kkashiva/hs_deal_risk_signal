@@ -13,11 +13,11 @@ const LEGACY_SORT_KEY = 'hs_deal_risk_sort';
 // ---- Types ----
 
 export interface ViewFilters {
-    pipeline: string;
+    pipeline: string[];
     risk: string;
     reason: string;
-    stage: string;
-    owner: string;
+    stage: string[];
+    owner: string[];
     amountMin: string;
     amountMax: string;
     closeMin: string;
@@ -48,11 +48,11 @@ export interface DashboardViewsState {
 
 export function createDefaultFilters(): ViewFilters {
     return {
-        pipeline: '',
+        pipeline: [],
         risk: '',
         reason: '',
-        stage: '',
-        owner: '',
+        stage: [],
+        owner: [],
         amountMin: '',
         amountMax: '',
         closeMin: '',
@@ -103,6 +103,15 @@ export function loadViews(): DashboardViewsState {
         try {
             const parsed: DashboardViewsState = JSON.parse(raw);
             if (parsed.views && parsed.views.length > 0) {
+                // Migrate string filter values to arrays for multi-select fields
+                for (const view of parsed.views) {
+                    const f = view.filters as Record<string, unknown>;
+                    for (const key of ['pipeline', 'stage', 'owner'] as const) {
+                        if (typeof f[key] === 'string') {
+                            (view.filters as any)[key] = f[key] ? [f[key] as string] : [];
+                        }
+                    }
+                }
                 return parsed;
             }
         } catch {
