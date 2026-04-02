@@ -24,6 +24,7 @@ export interface ViewFilters {
     closeMax: string;
     riskChangeMin: string;
     riskChangeMax: string;
+    search: string;
 }
 
 export interface ViewSort {
@@ -59,6 +60,7 @@ export function createDefaultFilters(): ViewFilters {
         closeMax: '',
         riskChangeMin: '',
         riskChangeMax: '',
+        search: '',
     };
 }
 
