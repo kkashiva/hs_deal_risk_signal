@@ -105,10 +105,10 @@ export function loadViews(): DashboardViewsState {
             if (parsed.views && parsed.views.length > 0) {
                 // Migrate string filter values to arrays for multi-select fields
                 for (const view of parsed.views) {
-                    const f = view.filters as Record<string, unknown>;
-                    for (const key of ['pipeline', 'stage', 'owner'] as const) {
+                    const f = view.filters as any;
+                    for (const key of ['pipeline', 'stage', 'owner']) {
                         if (typeof f[key] === 'string') {
-                            (view.filters as any)[key] = f[key] ? [f[key] as string] : [];
+                            f[key] = f[key] ? [f[key]] : [];
                         }
                     }
                 }
