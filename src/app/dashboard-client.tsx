@@ -413,6 +413,7 @@ export function DashboardView({
     const filterCloseMax = activeView?.filters.closeMax ?? '';
     const filterRiskChangeMin = activeView?.filters.riskChangeMin ?? '';
     const filterRiskChangeMax = activeView?.filters.riskChangeMax ?? '';
+    const filterSearch = activeView?.filters.search ?? '';
     const visibleColumns = activeView?.columns ?? [];
     const sortConfig: SortConfig = activeView?.sort ?? { key: 'evaluation_date', direction: 'desc' };
 
@@ -440,6 +441,7 @@ export function DashboardView({
     const setFilterCloseMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, closeMax: val } }));
     const setFilterRiskChangeMin = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, riskChangeMin: val } }));
     const setFilterRiskChangeMax = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, riskChangeMax: val } }));
+    const setFilterSearch = (val: string) => updateActiveView(v => ({ ...v, filters: { ...v.filters, search: val } }));
     const setVisibleColumns = (cols: string[]) => updateActiveView(v => ({ ...v, columns: cols }));
     const setSortConfig = (s: SortConfig) => updateActiveView(v => ({ ...v, sort: s }));
 
@@ -505,6 +507,7 @@ export function DashboardView({
     // Filter and Sort evaluations client-side and normalize stages
     const filteredAndSortedEvaluations = useMemo(() => {
         const filtered = evaluations.filter((e: RiskEvaluation) => {
+            if (filterSearch && !e.deal_name?.toLowerCase().includes(filterSearch.toLowerCase())) return false;
             if (filterPipeline.length > 0 && (!e.pipeline || !filterPipeline.includes(e.pipeline))) return false;
             if (filterRisk && e.risk_level !== filterRisk) return false;
             if (filterReason && e.risk_reason !== filterReason) return false;
@@ -607,7 +610,7 @@ export function DashboardView({
             const comparison = valA < valB ? -1 : 1;
             return sortConfig.direction === 'asc' ? comparison : -comparison;
         });
-    }, [evaluations, filterPipeline, filterRisk, filterReason, filterStage, filterOwner, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, filterRiskChangeMin, filterRiskChangeMax, sortConfig]);
+    }, [evaluations, filterSearch, filterPipeline, filterRisk, filterReason, filterStage, filterOwner, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, filterRiskChangeMin, filterRiskChangeMax, sortConfig]);
 
     // Derive counts from the currently filtered evaluations so summary cards reflect active filters/view
     const filteredCounts = useMemo((): RiskCounts => {
@@ -699,7 +702,7 @@ export function DashboardView({
         }
     }
 
-    const hasActiveFilters = filterPipeline.length > 0 || filterRisk || filterReason || filterStage.length > 0 || filterOwner.length > 0 || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax || filterRiskChangeMin || filterRiskChangeMax;
+    const hasActiveFilters = filterSearch || filterPipeline.length > 0 || filterRisk || filterReason || filterStage.length > 0 || filterOwner.length > 0 || filterAmountMin || filterAmountMax || filterCloseMin || filterCloseMax || filterRiskChangeMin || filterRiskChangeMax;
 
     function toggleRiskFilter(level: string) {
         if (filterRisk === level) {
@@ -835,6 +838,7 @@ export function DashboardView({
                                 setFilterCloseMax('');
                                 setFilterRiskChangeMin('');
                                 setFilterRiskChangeMax('');
+                                setFilterSearch('');
                             }}
                         >
                             ✕ Clear Filters
@@ -889,6 +893,13 @@ export function DashboardView({
 
                 {/* Filter Dropdowns */}
                 <div className="filter-row">
+                    <input
+                        type="text"
+                        className="filter-select"
+                        placeholder="Search deals..."
+                        value={filterSearch}
+                        onChange={e => setFilterSearch(e.target.value)}
+                    />
                     <MultiSelect
                         options={pipelines}
                         selected={filterPipeline}
