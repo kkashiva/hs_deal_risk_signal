@@ -505,7 +505,7 @@ export function DashboardView({
     // Filter and Sort evaluations client-side and normalize stages
     const filteredAndSortedEvaluations = useMemo(() => {
         const filtered = evaluations.filter((e: RiskEvaluation) => {
-            if (filterPipeline.length > 0 && !filterPipeline.includes(e.pipeline)) return false;
+            if (filterPipeline.length > 0 && (!e.pipeline || !filterPipeline.includes(e.pipeline))) return false;
             if (filterRisk && e.risk_level !== filterRisk) return false;
             if (filterReason && e.risk_reason !== filterReason) return false;
 
