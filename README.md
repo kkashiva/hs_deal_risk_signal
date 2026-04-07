@@ -16,8 +16,11 @@ The **Sales Deal Risk Engine** follows a multi-stage analysis pipeline built on 
 
 The system aggregates signals from:
 * **Gong** call transcripts (processed via dedicated extraction prompt).
-* **HubSpot** deal metadata (Amount, MRR, Stage, Close Date Drift, Pipeline).
+* **HubSpot** deal metadata (Amount, MRR, Stage, Close Date Drift, Pipeline) plus enriched context across 10 dimensions: company & team, champions/decision makers, use cases, budget, competition, pricing & packaging, MEDPICC scorecard (Enterprise), pain points, and internal notes.
+* **HubSpot** associated contacts (job titles, persona group, seniority — up to 10 contacts per deal).
 * **Sales Activity** (Full email threads analyzed for engagement sentiment and gaps).
+
+The analysis uses a **signal hierarchy**: Gong transcripts and email patterns are weighted as primary evidence, MEDPICC/engagement/notes as secondary, and deal stage (which is frequently stale) as tertiary context only.
 
 ---
 

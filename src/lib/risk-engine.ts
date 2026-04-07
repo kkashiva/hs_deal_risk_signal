@@ -13,6 +13,7 @@ import {
     fetchOpenDeals,
     fetchDeal,
     fetchDealEngagements,
+    fetchDealContacts,
     computeActivityMetrics,
     updateDealRiskFields,
     createTaskForHighRisk,
@@ -33,8 +34,11 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
     const props = deal.properties;
     const now = Date.now();
 
-    // Fetch engagements
-    const engagements = await fetchDealEngagements(deal.id);
+    // Fetch engagements and contacts in parallel
+    const [engagements, contacts] = await Promise.all([
+        fetchDealEngagements(deal.id),
+        fetchDealContacts(deal.id),
+    ]);
     const activityMetrics = computeActivityMetrics(engagements);
 
     // Compute stage duration
@@ -119,6 +123,61 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
             forecast_category: props.hs_manual_forecast_category || props.hs_forecast_category,
             owner_id: props.hubspot_owner_id,
             num_contacts: parseInt(props.num_associated_contacts || '0'),
+
+            // Company & Team
+            company_size: props.company_size || null,
+            industry: props.riverside_industries || null,
+            clay_industry: props.clay_industry || null,
+
+            // Champions / Decision Makers
+            champion_email: props.champion_email_address || null,
+            decision_maker_email: props.decision_maker_email_address || null,
+            contacts_job_titles: props.contacts_job_titles || null,
+
+            // Use Cases
+            primary_use_case: props.primary_use_case || null,
+            secondary_use_cases: props.secondary_use_cases || null,
+            riverside_use_case: props.riverside_use_case || null,
+
+            // Budget
+            budget_scoring: props['budget__scoring_'] || null,
+            economic_buyer_stage: props['economic_buyer___third_stage'] || null,
+            metrics_stage: props['metrics___third_stage'] || null,
+
+            // Competition
+            competition_stage: props['competition___third_stage'] || null,
+            competitive: props['competitive_'] || null,
+            competitors_considered: props['what_competitors_are_they_looking_into_'] || null,
+
+            // Pricing
+            customer_plan: props['customer_plan__line_item_'] || null,
+            pricing_package: props['pricing_package__line_item_'] || null,
+            add_on_licenses: props['add_on_licenses__line_item_'] || null,
+            add_on_productions: props['add_on_productions__line_item_'] || null,
+            webinar_add_on_mrr: props.webinar_add_on_mrr || null,
+            num_accounts_given: props['how_many_accounts_are_being_given___customer_'] || null,
+            num_productions_given: props['how_many_productions_are_being_given_'] || null,
+
+            // Pain (Enterprise)
+            pain_net_new: props['identify_pain__net_new____third_stage'] || null,
+            pain_vs_pro: props['identify_pain__vs_pro____third_stage'] || null,
+
+            // Notes
+            notes: props.notes || null,
+            manager_notes: props.manager_notes || null,
+
+            // MEDPICC (Enterprise)
+            decision_process_stage: props['decision_process___third_stage'] || null,
+            paper_process_stage: props['paper_process___third_stage'] || null,
+            champion_stage: props['champion___third_stage'] || null,
+
+            // Associated contacts
+            contacts: contacts.map(c => ({
+                id: c.id,
+                job_title: c.jobtitle,
+                persona_group: c.persona_group,
+                persona_seniority: c.persona_seniority,
+            })),
         },
         engagement_metrics: activityMetrics,
         recent_engagements: recentEngagements,
