@@ -23,6 +23,7 @@ import {
     LLMProvider,
 } from './types';
 import { getConfig } from './config';
+import { PIPELINE_MAP } from './mappings';
 
 // --- Zod Schema for Structured Output ---
 
@@ -145,38 +146,132 @@ async function invokeStructuredWithFallback(
 
 const DEAL_ANALYSIS_PROMPT = `You are a sales deal risk analyst specializing in B2B SaaS deal velocity and engagement patterns.
 
-Analyze the deal metadata and engagement metrics below. Focus on:
-- Stage progression velocity (is the deal stalling or progressing normally?)
+Analyze the deal metadata, engagement metrics, and enriched CRM context below. Focus on:
+- Stage progression context (NOTE: deal stage is owner-reported and often outdated — use it as
+  a loose reference but weight engagement data, MEDPICC signals, and notes more heavily)
 - Engagement frequency and recency (healthy vs concerning patterns)
-- Multi-threading indicators (number of contacts, engagement diversity)
+- Champion & decision maker identification (who is driving the deal? is there a clear DM?)
+- Multi-threading depth (number and seniority of contacts, decision maker involvement)
+- Budget and procurement readiness (is budget confirmed? procurement process clear?)
+- Competitive landscape (are competitors being evaluated? how serious?)
+- Use case clarity (is the prospect's use case well-defined?)
+- Pain point articulation (is the pain specific and urgent, or vague?)
+- Next steps specificity (concrete actions with dates vs vague "follow up")
 - Close date drift (has it been pushed?)
-- Forecast category alignment with deal behavior
 
-Write a concise analysis (max 200 words) summarizing the key risk signals and health indicators from this data. Be specific — cite numbers.
+Write a concise analysis (max 300 words) summarizing the key risk signals and health indicators from this data. Be specific — cite numbers and CRM field values.
 
 CALIBRATION RULES:
-- Deals in legal/contract/negotiation stages naturally have fewer meetings and longer 
+- IMPORTANT: Deal stage in HubSpot is a LAGGING INDICATOR. Deal owners frequently do NOT
+  update it on time. Do NOT treat stage alone as a strong signal for risk assessment.
+  Cross-reference stage with engagement recency, notes, and MEDPICC fields to determine
+  actual deal momentum. If behavioral signals contradict the reported stage, trust the
+  behavioral signals.
+- Deals in legal/contract/negotiation stages naturally have fewer meetings and longer
   reply gaps. Do NOT flag this as risk unless the champion is also unresponsive.
-- Close date pushed once with a specific new date is NORMAL in enterprise. Only flag 
+- Close date pushed once with a specific new date is NORMAL in enterprise. Only flag
   when pushed 2+ times without a confirmed replacement date.
-- Stage duration must be evaluated relative to the stage: late-stage deals (legal, 
+- Stage duration must be evaluated relative to the stage: late-stage deals (legal,
   procurement) routinely take 2-6 weeks. Early stages stalling 2+ weeks is more concerning.
-- Amount reductions due to scope refinement (fewer licenses, dropped add-ons) with 
+- Amount reductions due to scope refinement (fewer licenses, dropped add-ons) with
   confirmed intent to proceed are POSITIVE signals, not risk.
-- Do NOT flag deal amounts/pricing as a risk. 
+- Do NOT flag deal amounts/pricing as a risk.
 - Do NOT treat the absence of transcripts as a risk.
 - Explicitly note positive signals alongside risk signals in your analysis.`;
 
 async function analyzeDealNode(state: GraphStateType): Promise<Partial<GraphStateType>> {
     const dm = state.dealMetadata;
     const em = state.engagementMetrics;
+    const pipelineName = dm.pipeline ? (PIPELINE_MAP[dm.pipeline] || dm.pipeline) : 'Unknown';
+    const isEnterprise = dm.pipeline === '9308023';
+
+    // Build enriched context sections (only include non-null data)
+    const sections: string[] = [];
+
+    const companyParts = [
+        dm.company_size && `- Company size: ${dm.company_size}`,
+        dm.industry && `- Industry: ${dm.industry}`,
+        dm.clay_industry && `- Clay industry: ${dm.clay_industry}`,
+    ].filter(Boolean);
+    if (companyParts.length) sections.push(`COMPANY CONTEXT:\n${companyParts.join('\n')}`);
+
+    const champParts = [
+        dm.champion_email ? `- Champion identified: Yes (${dm.champion_email})` : '- Champion identified: No',
+        dm.decision_maker_email ? `- Decision maker identified: Yes (${dm.decision_maker_email})` : '- Decision maker identified: No',
+        dm.contacts_job_titles && `- Contact titles: ${dm.contacts_job_titles}`,
+    ].filter(Boolean);
+    if (champParts.length) sections.push(`CHAMPION & DECISION MAKER:\n${champParts.join('\n')}`);
+
+    if (dm.contacts && dm.contacts.length > 0) {
+        const contactLines = dm.contacts.map(c => {
+            const parts = [c.job_title, c.persona_group, c.persona_seniority].filter(Boolean);
+            return `- ${parts.join(' | ') || 'Unknown role'}`;
+        });
+        sections.push(`ASSOCIATED CONTACTS (${dm.contacts.length}):\n${contactLines.join('\n')}`);
+    }
+
+    const useCaseParts = [
+        dm.primary_use_case && `- Primary: ${dm.primary_use_case}`,
+        dm.secondary_use_cases && `- Secondary: ${dm.secondary_use_cases}`,
+        dm.riverside_use_case && `- Riverside: ${dm.riverside_use_case}`,
+    ].filter(Boolean);
+    if (useCaseParts.length) sections.push(`USE CASES:\n${useCaseParts.join('\n')}`);
+
+    const compParts = [
+        dm.competition_stage && `- Competition (MEDPICC): ${dm.competition_stage}`,
+        dm.competitive && `- Competitive: ${dm.competitive}`,
+        dm.competitors_considered && `- Competitors considered: ${dm.competitors_considered}`,
+    ].filter(Boolean);
+    if (compParts.length) sections.push(`COMPETITION:\n${compParts.join('\n')}`);
+
+    const budgetParts = [
+        dm.budget_scoring && `- Budget scoring: ${dm.budget_scoring}`,
+        dm.economic_buyer_stage && `- Economic buyer (MEDPICC): ${dm.economic_buyer_stage}`,
+        dm.metrics_stage && `- Metrics (MEDPICC): ${dm.metrics_stage}`,
+    ].filter(Boolean);
+    if (budgetParts.length) sections.push(`BUDGET SIGNALS (Pipeline: ${pipelineName}):\n${budgetParts.join('\n')}`);
+
+    const pricingParts = [
+        dm.customer_plan && `- Plan: ${dm.customer_plan}`,
+        dm.pricing_package && `- Package: ${dm.pricing_package}`,
+        dm.add_on_licenses && `- Add-on licenses: ${dm.add_on_licenses}`,
+        dm.add_on_productions && `- Add-on productions: ${dm.add_on_productions}`,
+        dm.webinar_add_on_mrr && `- Webinar add-on MRR: ${dm.webinar_add_on_mrr}`,
+        dm.num_accounts_given && `- Accounts given: ${dm.num_accounts_given}`,
+        dm.num_productions_given && `- Productions given: ${dm.num_productions_given}`,
+    ].filter(Boolean);
+    if (pricingParts.length) sections.push(`PRICING & PACKAGING:\n${pricingParts.join('\n')}`);
+
+    if (isEnterprise) {
+        const medpiccParts = [
+            dm.metrics_stage && `- Metrics: ${dm.metrics_stage}`,
+            dm.economic_buyer_stage && `- Economic Buyer: ${dm.economic_buyer_stage}`,
+            dm.decision_process_stage && `- Decision Process: ${dm.decision_process_stage}`,
+            dm.paper_process_stage && `- Paper Process: ${dm.paper_process_stage}`,
+            dm.champion_stage && `- Champion: ${dm.champion_stage}`,
+            dm.competition_stage && `- Competition: ${dm.competition_stage}`,
+            dm.pain_net_new && `- Pain (Net New): ${dm.pain_net_new}`,
+            dm.pain_vs_pro && `- Pain (vs Pro): ${dm.pain_vs_pro}`,
+        ].filter(Boolean);
+        if (medpiccParts.length) sections.push(`MEDPICC SCORECARD (Enterprise):\n${medpiccParts.join('\n')}`);
+    }
+
+    const notesParts = [
+        dm.notes && `- Deal notes: ${dm.notes.substring(0, 1000)}`,
+        dm.manager_notes && `- Manager notes: ${dm.manager_notes.substring(0, 1000)}`,
+    ].filter(Boolean);
+    if (notesParts.length) sections.push(`INTERNAL NOTES:\n${notesParts.join('\n')}`);
+
+    const enrichedContext = sections.length > 0
+        ? `\n\nENRICHED DEAL CONTEXT:\n${sections.join('\n\n')}`
+        : '';
 
     const userPrompt = `DEAL METADATA:
 - Name: ${dm.deal_name}
 - Amount: $${dm.amount || 'Unknown'}
 - MRR: $${dm.mrr || 'Unknown'}
-- Stage: ${dm.stage || 'Unknown'}
-- Pipeline: ${dm.pipeline || 'Unknown'}
+- Stage: ${dm.stage || 'Unknown'} (NOTE: may be outdated — cross-reference with engagement data)
+- Pipeline: ${pipelineName}
 - Days in current stage: ${dm.days_in_stage ?? 'Unknown'}
 - Days since deal created: ${dm.days_since_creation ?? 'Unknown'}
 - Close date: ${dm.close_date || 'Not set'}
@@ -194,7 +289,7 @@ ENGAGEMENT METRICS:
 - Meeting no-shows: ${em.meetingNoShows}
 - Avg email reply time: ${em.avgEmailReplyTimeHours !== null ? em.avgEmailReplyTimeHours + 'h' : 'N/A'}
 - Avg days between meetings: ${em.avgDaysBetweenMeetings ?? 'N/A'}
-- Avg days between activities: ${em.avgDaysBetweenActivities ?? 'N/A'}`;
+- Avg days between activities: ${em.avgDaysBetweenActivities ?? 'N/A'}${enrichedContext}`;
 
     const messages: (SystemMessage | HumanMessage)[] = [
         new SystemMessage(DEAL_ANALYSIS_PROMPT),
@@ -327,6 +422,11 @@ IMPORTANT GUIDELINES:
 - Do NOT flag deal amounts or pricing as a risk factor.
 - Do NOT treat the absence of Gong transcripts as a risk signal.
 - When a forecast category IS provided, use it as context but do not flag its presence/absence as the primary risk factor.
+- Deal stage is frequently NOT updated by deal owners. Treat it as a loose reference only.
+  Weight Gong call transcripts and email communication patterns as the PRIMARY evidence
+  for deal health. MEDPICC fields, engagement recency, notes, and champion/DM identification
+  are SECONDARY. Deal stage is TERTIARY — use only when primary and secondary signals are
+  insufficient.
 
 Risk Level Assignment Rules:
 - HIGH: Requires 2+ strong negative signals with NO offsetting positive signals.
@@ -351,7 +451,7 @@ Based on all three analyses, produce your final risk assessment. The explanation
 async function synthesizeNode(state: GraphStateType): Promise<Partial<GraphStateType>> {
     const dm = state.dealMetadata;
 
-    const userPrompt = `DEAL: "${dm.deal_name}" | Stage: ${dm.stage || 'Unknown'} | MRR: $${dm.mrr || 'Unknown'}
+    const userPrompt = `DEAL: "${dm.deal_name}" | MRR: $${dm.mrr || 'Unknown'} | Stage (may be stale): ${dm.stage || 'Unknown'}
 
 --- DEAL & ENGAGEMENT ANALYSIS ---
 ${state.dealAnalysis}
