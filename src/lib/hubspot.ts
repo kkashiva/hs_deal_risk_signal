@@ -9,7 +9,6 @@ import {
     DealActivityMetrics,
     RiskAnalysisResult,
 } from './types';
-import { PIPELINE_MAP } from './mappings';
 import { getConfig, EXCLUDED_STAGES } from './config';
 
 // --- Constants ---
