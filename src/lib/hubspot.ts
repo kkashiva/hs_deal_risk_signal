@@ -108,11 +108,33 @@ export async function ensureCustomProperties(): Promise<void> {
 // --- Fetch Open Deals ---
 
 const DEAL_PROPERTIES = [
+    // --- Core ---
     'dealname', 'amount', 'mrr', 'hs_mrr', 'dealstage', 'deal_stage_name__text_', 'pipeline',
     'closedate', 'createdate', 'hs_lastmodifieddate',
     'hubspot_owner_id', 'hs_forecast_category', 'hs_manual_forecast_category',
     'notes_last_updated', 'num_associated_contacts', 'hs_v2_time_in_current_stage',
-    'hs_is_open_count'
+    'hs_is_open_count',
+    // --- Company & Team ---
+    'company_size', 'riverside_industries', 'clay_industry',
+    // --- Champions / DMs ---
+    'champion_email_address', 'decision_maker_email_address', 'contacts_job_titles',
+    // --- Use Cases ---
+    'primary_use_case', 'secondary_use_cases', 'riverside_use_case',
+    // --- Budget ---
+    'budget__scoring_', 'economic_buyer___third_stage', 'metrics___third_stage',
+    // --- Competition ---
+    'competition___third_stage', 'competitive_', 'what_competitors_are_they_looking_into_',
+    // --- Pricing ---
+    'customer_plan__line_item_', 'pricing_package__line_item_',
+    'add_on_licenses__line_item_', 'add_on_productions__line_item_',
+    'webinar_add_on_mrr', 'how_many_accounts_are_being_given___customer_',
+    'how_many_productions_are_being_given_',
+    // --- Pain (Enterprise) ---
+    'identify_pain__net_new____third_stage', 'identify_pain__vs_pro____third_stage',
+    // --- Notes ---
+    'notes', 'manager_notes',
+    // --- MEDPICC (Enterprise) ---
+    'decision_process___third_stage', 'paper_process___third_stage', 'champion___third_stage',
 ];
 
 /** Returns true if the deal is open (hs_is_open_count === '1') */
