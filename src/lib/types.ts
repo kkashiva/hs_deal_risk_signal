@@ -64,6 +64,15 @@ export interface GongTranscript {
   transcript: string;
 }
 
+// --- Contact Types ---
+
+export interface DealContact {
+  id: string;
+  job_title: string | null;
+  persona_group: string | null;
+  persona_seniority: string | null;
+}
+
 // --- AI Analysis Types ---
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -106,6 +115,56 @@ export interface RiskInput {
     forecast_category: string | null;
     owner_id: string | null;
     num_contacts: number;
+
+    // Company & Team
+    company_size: string | null;
+    industry: string | null;
+    clay_industry: string | null;
+
+    // Champions / Decision Makers
+    champion_email: string | null;
+    decision_maker_email: string | null;
+    contacts_job_titles: string | null;
+
+    // Use Cases
+    primary_use_case: string | null;
+    secondary_use_cases: string | null;
+    riverside_use_case: string | null;
+
+    // Budget (pipeline-conditional)
+    budget_scoring: string | null;
+    economic_buyer_stage: string | null;
+    metrics_stage: string | null;
+
+    // Competition
+    competition_stage: string | null;
+    competitive: string | null;
+    competitors_considered: string | null;
+
+    // Pricing
+    customer_plan: string | null;
+    pricing_package: string | null;
+    add_on_licenses: string | null;
+    add_on_productions: string | null;
+    webinar_add_on_mrr: string | null;
+    num_accounts_given: string | null;
+    num_productions_given: string | null;
+
+    // Pain (Enterprise only)
+    pain_net_new: string | null;
+    pain_vs_pro: string | null;
+
+    // Notes
+    notes: string | null;
+    manager_notes: string | null;
+
+    // MEDPICC (Enterprise only)
+    decision_process_stage: string | null;
+    paper_process_stage: string | null;
+    champion_stage: string | null;
+
+    // Associated contacts
+    contacts: DealContact[];
   };
   engagement_metrics: DealActivityMetrics;
   recent_engagements: {
