@@ -297,6 +297,55 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
     return engagements;
 }
 
+// --- Fetch Associated Contacts for a Deal ---
+
+export interface HubSpotContact {
+    id: string;
+    jobtitle: string | null;
+    persona_group: string | null;
+    persona_seniority: string | null;
+}
+
+const CONTACT_PROPERTIES = ['jobtitle', 'persona_group', 'persona_seniority'];
+
+export async function fetchDealContacts(dealId: string): Promise<HubSpotContact[]> {
+    const client = getClient();
+    const contacts: HubSpotContact[] = [];
+
+    try {
+        const response = await client.apiRequest({
+            method: 'GET',
+            path: `/crm/v4/objects/deals/${dealId}/associations/contacts`,
+        });
+        const data = await response.json() as { results?: { toObjectId: number }[] };
+        const contactIds = (data.results || []).map(r => String(r.toObjectId));
+
+        // Cap at 10 contacts to limit API calls
+        const idsToFetch = contactIds.slice(0, 10);
+        const results = await Promise.allSettled(
+            idsToFetch.map(id =>
+                client.crm.contacts.basicApi.getById(id, CONTACT_PROPERTIES)
+            )
+        );
+
+        for (const result of results) {
+            if (result.status === 'fulfilled') {
+                const c = result.value;
+                contacts.push({
+                    id: c.id,
+                    jobtitle: c.properties.jobtitle || null,
+                    persona_group: c.properties.persona_group || null,
+                    persona_seniority: c.properties.persona_seniority || null,
+                });
+            }
+        }
+    } catch (error) {
+        console.error(`Failed to fetch contacts for deal ${dealId}:`, error);
+    }
+
+    return contacts;
+}
+
 // --- Compute Activity Metrics ---
 
 export function computeActivityMetrics(engagements: HubSpotEngagement[]): DealActivityMetrics {
