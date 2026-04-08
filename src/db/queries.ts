@@ -107,10 +107,11 @@ export async function getLatestEvaluations(filters?: {
       confidence DESC
   `;
 
-    const limit = filters?.limit || 50;
-    const offset = filters?.offset || 0;
-    sql += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
-    params.push(limit, offset);
+    if (filters?.limit) {
+        const offset = filters?.offset || 0;
+        sql += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+        params.push(filters.limit, offset);
+    }
 
     return query<RiskEvaluation>(sql, params);
 }

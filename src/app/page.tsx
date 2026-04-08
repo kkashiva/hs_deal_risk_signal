@@ -18,7 +18,7 @@ import { DashboardView } from './dashboard-client';
 async function getDashboardData() {
   try {
     const [evaluations, counts, pipelines, riskReasons, stages, owners] = await Promise.all([
-      getLatestEvaluations({ limit: 200 }),
+      getLatestEvaluations({}),
       getRiskCounts(),
       getDistinctPipelines(),
       getDistinctRiskReasons(),
