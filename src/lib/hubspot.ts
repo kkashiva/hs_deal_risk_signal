@@ -244,7 +244,8 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                         case 'emails':
                             record = await client.crm.objects.emails.basicApi.getById(
                                 objectId,
-                                ['hs_timestamp', 'hs_email_subject', 'hs_email_text', 'hs_email_html', 'hs_email_direction']
+                                ['hs_timestamp', 'hs_email_subject', 'hs_email_text', 'hs_email_html', 'hs_email_direction',
+                                 'hs_email_to_email', 'hs_email_cc_email', 'hs_email_from_email']
                             );
                             break;
                         case 'notes':
@@ -274,9 +275,12 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                             timestamp: new Date(record.properties.hs_timestamp || record.createdAt).getTime(),
                             subject: record.properties.hs_email_subject || record.properties.hs_meeting_title || record.properties.hs_call_title || undefined,
                             body: record.properties.hs_email_text || record.properties.hs_email_html || record.properties.hs_note_body || record.properties.hs_meeting_body || record.properties.hs_call_body || undefined,
-                            ...(engagementType === 'EMAIL' && record.properties.hs_email_direction
-                                ? { direction: record.properties.hs_email_direction }
-                                : {}),
+                            ...(engagementType === 'EMAIL' ? {
+                                ...(record.properties.hs_email_direction ? { direction: record.properties.hs_email_direction } : {}),
+                                ...(record.properties.hs_email_to_email ? { emailTo: record.properties.hs_email_to_email } : {}),
+                                ...(record.properties.hs_email_cc_email ? { emailCc: record.properties.hs_email_cc_email } : {}),
+                                ...(record.properties.hs_email_from_email ? { emailFrom: record.properties.hs_email_from_email } : {}),
+                            } : {}),
                             ...(engagementType === 'MEETING' && record.properties.hs_meeting_outcome
                                 ? { meetingOutcome: record.properties.hs_meeting_outcome }
                                 : {}),
@@ -300,12 +304,13 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
 
 export interface HubSpotContact {
     id: string;
+    email: string | null;
     jobtitle: string | null;
     persona_group: string | null;
     persona_seniority: string | null;
 }
 
-const CONTACT_PROPERTIES = ['jobtitle', 'persona_group', 'persona_seniority'];
+const CONTACT_PROPERTIES = ['email', 'jobtitle', 'persona_group', 'persona_seniority'];
 
 export async function fetchDealContacts(dealId: string): Promise<HubSpotContact[]> {
     const client = getClient();
@@ -332,6 +337,7 @@ export async function fetchDealContacts(dealId: string): Promise<HubSpotContact[
                 const c = result.value;
                 contacts.push({
                     id: c.id,
+                    email: c.properties.email || null,
                     jobtitle: c.properties.jobtitle || null,
                     persona_group: c.properties.persona_group || null,
                     persona_seniority: c.properties.persona_seniority || null,
