@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { RiskEvaluation, DealActivityMetrics } from '@/lib/types';
 import { PIPELINE_MAP, getNormalizedStage } from '@/lib/mappings';
 import { DealDetailClient } from './deal-detail-client';
+import ReactMarkdown from 'react-markdown';
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -139,12 +140,14 @@ export default async function DealDetailPage({ params }: PageProps) {
                                 <div className="ai-analysis-grid">
                                     <div className="ai-explanation">
                                         <div className="detail-label" style={{ marginBottom: '8px' }}>Detailed Explanation</div>
-                                        {latest.explanation}
+                                        <div className="markdown-content">
+                                            <ReactMarkdown>{latest.explanation}</ReactMarkdown>
+                                        </div>
                                     </div>
                                     <div className="recommended-action-box">
                                         <h4>Recommended Action</h4>
-                                        <div className="recommended-action-text">
-                                            {latest.recommended_action}
+                                        <div className="recommended-action-text markdown-content">
+                                            <ReactMarkdown>{latest.recommended_action}</ReactMarkdown>
                                         </div>
                                     </div>
                                 </div>
@@ -171,8 +174,8 @@ export default async function DealDetailPage({ params }: PageProps) {
                                                     <div className="analysis-source-header">
                                                         <span>📂</span> Deal Metadata Analysis
                                                     </div>
-                                                    <div className="analysis-source-content">
-                                                        {latest.deal_analysis}
+                                                    <div className="analysis-source-content markdown-content">
+                                                        <ReactMarkdown>{latest.deal_analysis}</ReactMarkdown>
                                                     </div>
                                                 </div>
                                             )}
@@ -181,8 +184,8 @@ export default async function DealDetailPage({ params }: PageProps) {
                                                     <div className="analysis-source-header">
                                                         <span>📧</span> Email Communication Analysis
                                                     </div>
-                                                    <div className="analysis-source-content">
-                                                        {latest.email_analysis}
+                                                    <div className="analysis-source-content markdown-content">
+                                                        <ReactMarkdown>{latest.email_analysis}</ReactMarkdown>
                                                     </div>
                                                 </div>
                                             )}
@@ -191,8 +194,8 @@ export default async function DealDetailPage({ params }: PageProps) {
                                                     <div className="analysis-source-header">
                                                         <span>🎙️</span> Call Transcript Analysis
                                                     </div>
-                                                    <div className="analysis-source-content">
-                                                        {latest.transcript_analysis}
+                                                    <div className="analysis-source-content markdown-content">
+                                                        <ReactMarkdown>{latest.transcript_analysis}</ReactMarkdown>
                                                     </div>
                                                 </div>
                                             )}
