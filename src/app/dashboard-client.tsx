@@ -446,8 +446,13 @@ export function DashboardView({
     const setSortConfig = (s: SortConfig) => updateActiveView(v => ({ ...v, sort: s }));
 
     // ---- View CRUD ----
+    // ---- Pagination state ----
+    const [currentPage, setCurrentPage] = useState(0);
+    const PAGE_SIZE = 50;
+
     const switchView = (id: string) => {
         setViewsState(prev => prev ? { ...prev, activeViewId: id } : prev);
+        setCurrentPage(0);
     };
 
     const addView = () => {
@@ -629,6 +634,20 @@ export function DashboardView({
         }
         return { total: filteredAndSortedEvaluations.length, high, medium, low, pipelineBreakdown: breakdown };
     }, [filteredAndSortedEvaluations]);
+
+    // ---- Pagination: reset page when filters/sort change ----
+    const filterFingerprint = useMemo(() =>
+        JSON.stringify([filterSearch, filterPipeline, filterRisk, filterReason, filterStage, filterOwner, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, filterRiskChangeMin, filterRiskChangeMax, sortConfig]),
+        [filterSearch, filterPipeline, filterRisk, filterReason, filterStage, filterOwner, filterAmountMin, filterAmountMax, filterCloseMin, filterCloseMax, filterRiskChangeMin, filterRiskChangeMax, sortConfig]
+    );
+    useEffect(() => { setCurrentPage(0); }, [filterFingerprint]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredAndSortedEvaluations.length / PAGE_SIZE));
+    const safeCurrentPage = Math.min(currentPage, totalPages - 1);
+    const paginatedEvaluations = filteredAndSortedEvaluations.slice(
+        safeCurrentPage * PAGE_SIZE,
+        (safeCurrentPage + 1) * PAGE_SIZE
+    );
 
     // Unique normalized stages for the filter dropdown
     const uniqueNormalizedStages = useMemo(() => {
@@ -1025,6 +1044,7 @@ export function DashboardView({
                         <p>{hasActiveFilters ? 'Try adjusting the filters.' : 'Run your first risk scan to see results here.'}</p>
                     </div>
                 ) : (
+                    <>
                     <table>
                         <thead>
                             <tr>
@@ -1093,7 +1113,7 @@ export function DashboardView({
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredAndSortedEvaluations.map((evaluation: RiskEvaluation) => (
+                            {paginatedEvaluations.map((evaluation: RiskEvaluation) => (
                                 <tr 
                                     key={`${evaluation.deal_id}-${evaluation.id}`}
                                     className="clickable-row"
@@ -1179,6 +1199,29 @@ export function DashboardView({
                             ))}
                         </tbody>
                     </table>
+                    {filteredAndSortedEvaluations.length > PAGE_SIZE && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '12px 16px',
+                            borderTop: '1px solid var(--border)',
+                            fontSize: '13px',
+                            color: 'var(--text-secondary)',
+                        }}>
+                            <span>
+                                Showing {safeCurrentPage * PAGE_SIZE + 1}&ndash;{Math.min((safeCurrentPage + 1) * PAGE_SIZE, filteredAndSortedEvaluations.length)} of {filteredAndSortedEvaluations.length} deals
+                            </span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <button className="btn btn-sm" onClick={() => setCurrentPage(0)} disabled={safeCurrentPage === 0}>First</button>
+                                <button className="btn btn-sm" onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={safeCurrentPage === 0}>Previous</button>
+                                <span>Page {safeCurrentPage + 1} of {totalPages}</span>
+                                <button className="btn btn-sm" onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={safeCurrentPage >= totalPages - 1}>Next</button>
+                                <button className="btn btn-sm" onClick={() => setCurrentPage(totalPages - 1)} disabled={safeCurrentPage >= totalPages - 1}>Last</button>
+                            </div>
+                        </div>
+                    )}
+                </>
                 )}
             </div>
         </div>
