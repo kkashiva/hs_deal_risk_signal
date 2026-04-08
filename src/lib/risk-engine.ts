@@ -4,9 +4,11 @@
 
 import {
     HubSpotDeal,
+    HubSpotEngagement,
     RiskInput,
     RiskAnalysisResult,
     ScanResult,
+    EngagementDiscoveredContact,
 } from './types';
 import { getConfig } from './config';
 import {
@@ -19,6 +21,9 @@ import {
     createTaskForHighRisk,
     isDealOpen,
     fetchOwners,
+    fetchMeetingAttendeeContactIds,
+    batchFetchContacts,
+    batchSearchContactsByEmail,
 } from './hubspot';
 import { PIPELINE_MAP, getNormalizedStage } from './mappings';
 import { getTranscriptsFromCallIds, isGongConfigured, extractGongCallIds } from './gong';
@@ -27,6 +32,89 @@ import { sendHighRiskAlert, sendScanSummary, isSlackConfigured } from './slack';
 import { insertRiskEvaluation, insertScanRun, updateScanRun, getPreviousEvaluation } from '../db/queries';
 
 const BATCH_SIZE = 5;
+
+// --- Engagement-Discovered Contacts ---
+
+function parseEmailList(semicolonSeparated: string | undefined): string[] {
+    if (!semicolonSeparated) return [];
+    return semicolonSeparated
+        .split(';')
+        .map(e => e.trim().toLowerCase())
+        .filter(e => e.length > 0 && e.includes('@'));
+}
+
+async function extractEngagementDiscoveredContacts(
+    engagements: HubSpotEngagement[],
+    associatedContactIds: Set<string>,
+    associatedContactEmails: Set<string>,
+): Promise<EngagementDiscoveredContact[]> {
+    try {
+        // Step 1: Collect unique emails from email To/CC/From fields
+        const emailAddresses = new Set<string>();
+        for (const eng of engagements) {
+            if (eng.type === 'EMAIL') {
+                for (const addr of [
+                    ...parseEmailList(eng.emailTo),
+                    ...parseEmailList(eng.emailCc),
+                    ...parseEmailList(eng.emailFrom),
+                ]) {
+                    if (!associatedContactEmails.has(addr)) {
+                        emailAddresses.add(addr);
+                    }
+                }
+            }
+        }
+
+        // Step 2: Collect contact IDs from meeting attendees
+        const meetingIds = engagements
+            .filter(e => e.type === 'MEETING')
+            .map(e => e.id);
+        const meetingAttendeeIds = await fetchMeetingAttendeeContactIds(meetingIds);
+
+        // Filter out contacts already associated with the deal
+        const newMeetingContactIds = [...meetingAttendeeIds].filter(id => !associatedContactIds.has(id));
+
+        // Step 3: Resolve emails and meeting contacts in parallel
+        const [emailContactsMap, meetingContacts] = await Promise.all([
+            batchSearchContactsByEmail([...emailAddresses]),
+            batchFetchContacts(newMeetingContactIds),
+        ]);
+
+        // Step 4: Build deduplicated discovered contacts list
+        const discovered = new Map<string, EngagementDiscoveredContact>();
+
+        // Email-discovered contacts
+        for (const addr of emailAddresses) {
+            const resolved = emailContactsMap.get(addr);
+            discovered.set(addr, {
+                email: addr,
+                job_title: resolved?.jobtitle || null,
+                persona_group: resolved?.persona_group || null,
+                persona_seniority: resolved?.persona_seniority || null,
+                source: 'email',
+            });
+        }
+
+        // Meeting-discovered contacts (deduplicate against email-discovered)
+        for (const contact of meetingContacts) {
+            const email = contact.email;
+            if (email && !associatedContactEmails.has(email) && !discovered.has(email)) {
+                discovered.set(email, {
+                    email,
+                    job_title: contact.jobtitle || null,
+                    persona_group: contact.persona_group || null,
+                    persona_seniority: contact.persona_seniority || null,
+                    source: 'meeting',
+                });
+            }
+        }
+
+        return [...discovered.values()];
+    } catch (error) {
+        console.error('Failed to extract engagement-discovered contacts:', error);
+        return [];
+    }
+}
 
 // --- Build Risk Input for a Deal ---
 
@@ -40,6 +128,18 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
         fetchDealContacts(deal.id),
     ]);
     const activityMetrics = computeActivityMetrics(engagements);
+
+    // Extract contacts discovered from email threads and meeting attendees
+    const associatedContactIds = new Set(contacts.map(c => c.id));
+    const associatedContactEmails = new Set(
+        contacts.map(c => c.email?.toLowerCase()).filter((e): e is string => !!e)
+    );
+    const engagementDiscoveredContacts = await extractEngagementDiscoveredContacts(
+        engagements, associatedContactIds, associatedContactEmails,
+    );
+    if (engagementDiscoveredContacts.length > 0) {
+        console.log(`  Found ${engagementDiscoveredContacts.length} engagement-discovered contact(s) for deal ${deal.id}`);
+    }
 
     // Compute stage duration
     const createDate = new Date(props.createdate).getTime();
@@ -174,10 +274,15 @@ async function buildRiskInput(deal: HubSpotDeal): Promise<RiskInput> {
             // Associated contacts
             contacts: contacts.map(c => ({
                 id: c.id,
+                email: c.email,
                 job_title: c.jobtitle,
                 persona_group: c.persona_group,
                 persona_seniority: c.persona_seniority,
             })),
+
+            // Contacts discovered from email threads and meeting attendees
+            engagement_discovered_contacts: engagementDiscoveredContacts,
+            total_engaged_contacts: parseInt(props.num_associated_contacts || '0') + engagementDiscoveredContacts.length,
         },
         engagement_metrics: activityMetrics,
         recent_engagements: recentEngagements,
