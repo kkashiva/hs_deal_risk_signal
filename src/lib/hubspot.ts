@@ -244,7 +244,8 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                         case 'emails':
                             record = await client.crm.objects.emails.basicApi.getById(
                                 objectId,
-                                ['hs_timestamp', 'hs_email_subject', 'hs_email_text', 'hs_email_html', 'hs_email_direction']
+                                ['hs_timestamp', 'hs_email_subject', 'hs_email_text', 'hs_email_html', 'hs_email_direction',
+                                 'hs_email_to_email', 'hs_email_cc_email', 'hs_email_from_email']
                             );
                             break;
                         case 'notes':
@@ -274,9 +275,12 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
                             timestamp: new Date(record.properties.hs_timestamp || record.createdAt).getTime(),
                             subject: record.properties.hs_email_subject || record.properties.hs_meeting_title || record.properties.hs_call_title || undefined,
                             body: record.properties.hs_email_text || record.properties.hs_email_html || record.properties.hs_note_body || record.properties.hs_meeting_body || record.properties.hs_call_body || undefined,
-                            ...(engagementType === 'EMAIL' && record.properties.hs_email_direction
-                                ? { direction: record.properties.hs_email_direction }
-                                : {}),
+                            ...(engagementType === 'EMAIL' ? {
+                                ...(record.properties.hs_email_direction ? { direction: record.properties.hs_email_direction } : {}),
+                                ...(record.properties.hs_email_to_email ? { emailTo: record.properties.hs_email_to_email } : {}),
+                                ...(record.properties.hs_email_cc_email ? { emailCc: record.properties.hs_email_cc_email } : {}),
+                                ...(record.properties.hs_email_from_email ? { emailFrom: record.properties.hs_email_from_email } : {}),
+                            } : {}),
                             ...(engagementType === 'MEETING' && record.properties.hs_meeting_outcome
                                 ? { meetingOutcome: record.properties.hs_meeting_outcome }
                                 : {}),
@@ -300,12 +304,13 @@ export async function fetchDealEngagements(dealId: string): Promise<HubSpotEngag
 
 export interface HubSpotContact {
     id: string;
+    email: string | null;
     jobtitle: string | null;
     persona_group: string | null;
     persona_seniority: string | null;
 }
 
-const CONTACT_PROPERTIES = ['jobtitle', 'persona_group', 'persona_seniority'];
+const CONTACT_PROPERTIES = ['email', 'jobtitle', 'persona_group', 'persona_seniority'];
 
 export async function fetchDealContacts(dealId: string): Promise<HubSpotContact[]> {
     const client = getClient();
@@ -332,6 +337,7 @@ export async function fetchDealContacts(dealId: string): Promise<HubSpotContact[
                 const c = result.value;
                 contacts.push({
                     id: c.id,
+                    email: c.properties.email || null,
                     jobtitle: c.properties.jobtitle || null,
                     persona_group: c.properties.persona_group || null,
                     persona_seniority: c.properties.persona_seniority || null,
@@ -485,4 +491,120 @@ export async function createTaskForHighRisk(
 
     const taskResponse = await client.crm.objects.tasks.basicApi.create(taskInput);
     console.log(`Created task ${taskResponse.id} for deal ${dealId}`);
+}
+
+// --- Batch: Meeting Attendee Contact IDs ---
+
+export async function fetchMeetingAttendeeContactIds(meetingIds: string[]): Promise<Set<string>> {
+    if (meetingIds.length === 0) return new Set();
+
+    const client = getClient();
+    const contactIds = new Set<string>();
+
+    try {
+        const response = await client.apiRequest({
+            method: 'POST',
+            path: '/crm/v4/associations/meetings/contacts/batch/read',
+            body: { inputs: meetingIds.map(id => ({ id })) },
+        });
+        const data = await response.json() as {
+            results?: Array<{ to: Array<{ toObjectId: number }> }>;
+        };
+
+        for (const result of data.results || []) {
+            for (const assoc of result.to || []) {
+                contactIds.add(String(assoc.toObjectId));
+            }
+        }
+    } catch (error) {
+        console.error('Failed to fetch meeting attendee contacts:', error);
+    }
+
+    return contactIds;
+}
+
+// --- Batch: Fetch Contacts by ID ---
+
+export async function batchFetchContacts(contactIds: string[]): Promise<HubSpotContact[]> {
+    if (contactIds.length === 0) return [];
+
+    const client = getClient();
+    const contacts: HubSpotContact[] = [];
+    const idsToFetch = contactIds.slice(0, 30);
+
+    try {
+        const response = await client.apiRequest({
+            method: 'POST',
+            path: '/crm/v3/objects/contacts/batch/read',
+            body: {
+                inputs: idsToFetch.map(id => ({ id })),
+                properties: CONTACT_PROPERTIES,
+            },
+        });
+        const data = await response.json() as {
+            results?: Array<{
+                id: string;
+                properties: Record<string, string | null>;
+            }>;
+        };
+
+        for (const c of data.results || []) {
+            contacts.push({
+                id: c.id,
+                email: c.properties.email?.toLowerCase() || null,
+                jobtitle: c.properties.jobtitle || null,
+                persona_group: c.properties.persona_group || null,
+                persona_seniority: c.properties.persona_seniority || null,
+            });
+        }
+    } catch (error) {
+        console.error('Failed to batch fetch contacts by ID:', error);
+    }
+
+    return contacts;
+}
+
+// --- Batch: Search Contacts by Email ---
+
+export async function batchSearchContactsByEmail(emails: string[]): Promise<Map<string, HubSpotContact>> {
+    if (emails.length === 0) return new Map();
+
+    const client = getClient();
+    const result = new Map<string, HubSpotContact>();
+    const emailsToFetch = emails.slice(0, 30);
+
+    try {
+        const response = await client.apiRequest({
+            method: 'POST',
+            path: '/crm/v3/objects/contacts/batch/read',
+            body: {
+                inputs: emailsToFetch.map(email => ({ id: email })),
+                properties: CONTACT_PROPERTIES,
+                idProperty: 'email',
+            },
+        });
+        const data = await response.json() as {
+            results?: Array<{
+                id: string;
+                properties: Record<string, string | null>;
+            }>;
+        };
+
+        for (const c of data.results || []) {
+            const email = c.properties.email?.toLowerCase();
+            if (email) {
+                result.set(email, {
+                    id: c.id,
+                    email,
+                    jobtitle: c.properties.jobtitle || null,
+                    persona_group: c.properties.persona_group || null,
+                    persona_seniority: c.properties.persona_seniority || null,
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Failed to batch search contacts by email:', error);
+    }
+
+    return result;
 }

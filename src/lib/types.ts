@@ -34,6 +34,10 @@ export interface HubSpotEngagement {
   direction?: 'INCOMING_EMAIL' | 'FORWARDED_EMAIL' | string; // populated for emails
   meetingOutcome?: string; // populated for meetings
   metadata?: Record<string, unknown>;
+  // Email participant fields (semicolon-separated email lists)
+  emailTo?: string;
+  emailCc?: string;
+  emailFrom?: string;
 }
 
 export interface DealActivityMetrics {
@@ -68,9 +72,18 @@ export interface GongTranscript {
 
 export interface DealContact {
   id: string;
+  email: string | null;
   job_title: string | null;
   persona_group: string | null;
   persona_seniority: string | null;
+}
+
+export interface EngagementDiscoveredContact {
+  email: string;
+  job_title: string | null;
+  persona_group: string | null;
+  persona_seniority: string | null;
+  source: 'email' | 'meeting';
 }
 
 // --- AI Analysis Types ---
@@ -165,6 +178,10 @@ export interface RiskInput {
 
     // Associated contacts
     contacts: DealContact[];
+
+    // Contacts discovered from email threads and meeting attendees (not formally associated)
+    engagement_discovered_contacts: EngagementDiscoveredContact[];
+    total_engaged_contacts: number;
   };
   engagement_metrics: DealActivityMetrics;
   recent_engagements: {

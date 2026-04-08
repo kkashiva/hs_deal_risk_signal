@@ -210,6 +210,16 @@ async function analyzeDealNode(state: GraphStateType): Promise<Partial<GraphStat
         sections.push(`ASSOCIATED CONTACTS (${dm.contacts.length}):\n${contactLines.join('\n')}`);
     }
 
+    if (dm.engagement_discovered_contacts && dm.engagement_discovered_contacts.length > 0) {
+        const discoveredLines = dm.engagement_discovered_contacts.map(c => {
+            const parts = [c.email, c.job_title, c.persona_seniority].filter(Boolean);
+            return `- ${parts.join(' | ')} (found via ${c.source})`;
+        });
+        sections.push(
+            `ENGAGEMENT-DISCOVERED CONTACTS (${dm.engagement_discovered_contacts.length}) — found in email threads/meetings but NOT formally associated to deal:\n${discoveredLines.join('\n')}`
+        );
+    }
+
     const useCaseParts = [
         dm.primary_use_case && `- Primary: ${dm.primary_use_case}`,
         dm.secondary_use_cases && `- Secondary: ${dm.secondary_use_cases}`,
@@ -277,7 +287,8 @@ async function analyzeDealNode(state: GraphStateType): Promise<Partial<GraphStat
 - Close date: ${dm.close_date || 'Not set'}
 - Close date drift: ${dm.close_date_drift_days !== null ? dm.close_date_drift_days + ' days' : 'N/A'}
 - Forecast category: ${dm.forecast_category || 'Not set'}
-- Number of contacts: ${dm.num_contacts}
+- Associated contacts: ${dm.num_contacts}
+- Total engaged contacts (incl. email/meeting participants): ${dm.total_engaged_contacts}
 
 ENGAGEMENT METRICS:
 - Total emails: ${em.totalEmails}
