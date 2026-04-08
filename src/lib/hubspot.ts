@@ -492,3 +492,119 @@ export async function createTaskForHighRisk(
     const taskResponse = await client.crm.objects.tasks.basicApi.create(taskInput);
     console.log(`Created task ${taskResponse.id} for deal ${dealId}`);
 }
+
+// --- Batch: Meeting Attendee Contact IDs ---
+
+export async function fetchMeetingAttendeeContactIds(meetingIds: string[]): Promise<Set<string>> {
+    if (meetingIds.length === 0) return new Set();
+
+    const client = getClient();
+    const contactIds = new Set<string>();
+
+    try {
+        const response = await client.apiRequest({
+            method: 'POST',
+            path: '/crm/v4/associations/meetings/contacts/batch/read',
+            body: { inputs: meetingIds.map(id => ({ id })) },
+        });
+        const data = await response.json() as {
+            results?: Array<{ to: Array<{ toObjectId: number }> }>;
+        };
+
+        for (const result of data.results || []) {
+            for (const assoc of result.to || []) {
+                contactIds.add(String(assoc.toObjectId));
+            }
+        }
+    } catch (error) {
+        console.error('Failed to fetch meeting attendee contacts:', error);
+    }
+
+    return contactIds;
+}
+
+// --- Batch: Fetch Contacts by ID ---
+
+export async function batchFetchContacts(contactIds: string[]): Promise<HubSpotContact[]> {
+    if (contactIds.length === 0) return [];
+
+    const client = getClient();
+    const contacts: HubSpotContact[] = [];
+    const idsToFetch = contactIds.slice(0, 30);
+
+    try {
+        const response = await client.apiRequest({
+            method: 'POST',
+            path: '/crm/v3/objects/contacts/batch/read',
+            body: {
+                inputs: idsToFetch.map(id => ({ id })),
+                properties: CONTACT_PROPERTIES,
+            },
+        });
+        const data = await response.json() as {
+            results?: Array<{
+                id: string;
+                properties: Record<string, string | null>;
+            }>;
+        };
+
+        for (const c of data.results || []) {
+            contacts.push({
+                id: c.id,
+                email: c.properties.email?.toLowerCase() || null,
+                jobtitle: c.properties.jobtitle || null,
+                persona_group: c.properties.persona_group || null,
+                persona_seniority: c.properties.persona_seniority || null,
+            });
+        }
+    } catch (error) {
+        console.error('Failed to batch fetch contacts by ID:', error);
+    }
+
+    return contacts;
+}
+
+// --- Batch: Search Contacts by Email ---
+
+export async function batchSearchContactsByEmail(emails: string[]): Promise<Map<string, HubSpotContact>> {
+    if (emails.length === 0) return new Map();
+
+    const client = getClient();
+    const result = new Map<string, HubSpotContact>();
+    const emailsToFetch = emails.slice(0, 30);
+
+    try {
+        const response = await client.apiRequest({
+            method: 'POST',
+            path: '/crm/v3/objects/contacts/batch/read',
+            body: {
+                inputs: emailsToFetch.map(email => ({ id: email })),
+                properties: CONTACT_PROPERTIES,
+                idProperty: 'email',
+            },
+        });
+        const data = await response.json() as {
+            results?: Array<{
+                id: string;
+                properties: Record<string, string | null>;
+            }>;
+        };
+
+        for (const c of data.results || []) {
+            const email = c.properties.email?.toLowerCase();
+            if (email) {
+                result.set(email, {
+                    id: c.id,
+                    email,
+                    jobtitle: c.properties.jobtitle || null,
+                    persona_group: c.properties.persona_group || null,
+                    persona_seniority: c.properties.persona_seniority || null,
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Failed to batch search contacts by email:', error);
+    }
+
+    return result;
+}
