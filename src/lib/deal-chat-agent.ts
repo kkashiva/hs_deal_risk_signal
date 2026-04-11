@@ -11,7 +11,7 @@ import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { tool } from '@langchain/core/tools';
-import { SystemMessage, HumanMessage, BaseMessage, AIMessage } from '@langchain/core/messages';
+import { SystemMessage, HumanMessage, BaseMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 import { RiskEvaluation, DealActivityMetrics } from './types';
 import { fetchDealEngagements } from './hubspot';
@@ -212,22 +212,39 @@ export function buildFollowUpMessage(userMessage: string): BaseMessage[] {
 }
 
 // Filter checkpoint messages to only human + AI (no tool calls/results/system)
+// Messages from checkpoint are deserialized objects — use _getType() or duck-typing
+// instead of instanceof checks which fail on plain objects.
 export function filterDisplayMessages(messages: BaseMessage[]): { id: string; role: 'user' | 'assistant'; content: string }[] {
     const display: { id: string; role: 'user' | 'assistant'; content: string }[] = [];
 
     for (const msg of messages) {
-        if (msg instanceof HumanMessage) {
-            const content = typeof msg.content === 'string' ? msg.content : '';
-            if (content) {
-                display.push({ id: msg.id || crypto.randomUUID(), role: 'user', content });
-            }
-        } else if (msg instanceof AIMessage) {
-            const content = typeof msg.content === 'string' ? msg.content : '';
-            // Only include AI messages with text content (not pure tool-call messages)
-            if (content) {
-                display.push({ id: msg.id || crypto.randomUUID(), role: 'assistant', content });
+        // Determine message type — works for both class instances and deserialized objects
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msgAny = msg as any;
+        const msgType = typeof msg._getType === 'function'
+            ? msg._getType()
+            : msgAny.type ?? msgAny._type;
+
+        if (msgType !== 'human' && msgType !== 'ai') continue;
+
+        // Extract text content — handle string, array of content blocks, or empty
+        let content = '';
+        if (typeof msg.content === 'string') {
+            content = msg.content;
+        } else if (Array.isArray(msg.content)) {
+            for (const block of msg.content) {
+                if (typeof block === 'string') {
+                    content += block;
+                } else if (block && typeof block === 'object' && 'text' in block) {
+                    content += (block as { text: string }).text;
+                }
             }
         }
+
+        if (!content) continue;
+
+        const role = msgType === 'human' ? 'user' : 'assistant';
+        display.push({ id: msg.id || crypto.randomUUID(), role, content });
     }
 
     return display;
