@@ -38,6 +38,9 @@ export function getConfig(): AppConfig {
         slack: {
             webhookUrl: optionalEnv('SLACK_WEBHOOK_URL', ''),
         },
+        anthropicChat: {
+            apiKey: optionalEnv('ANTHROPIC_CHAT_API_KEY', optionalEnv('ANTHROPIC_API_KEY', '')),
+        },
         cronSecret: requireEnv('CRON_SECRET'),
         mrrRoutingThreshold: parseInt(optionalEnv('MRR_ROUTING_THRESHOLD', '10000'), 10),
         highRiskDealValueThreshold: parseInt(optionalEnv('HIGH_RISK_DEAL_VALUE_THRESHOLD', '10000'), 10),

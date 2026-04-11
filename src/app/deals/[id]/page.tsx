@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { RiskEvaluation, DealActivityMetrics } from '@/lib/types';
 import { PIPELINE_MAP, getNormalizedStage } from '@/lib/mappings';
 import { DealDetailClient } from './deal-detail-client';
+import { ChatPanel } from './chat-panel';
 import ReactMarkdown from 'react-markdown';
 
 interface PageProps {
@@ -107,6 +108,11 @@ export default async function DealDetailPage({ params }: PageProps) {
                                     </div>
                                 </div>
                                 <div className="summary-actions">
+                                    <ChatPanel
+                                        dealId={id}
+                                        riskReason={latest.risk_reason}
+                                        riskLevel={latest.risk_level}
+                                    />
                                     <DealDetailClient dealId={id} />
                                     <a
                                         href={`https://app.hubspot.com/contacts/9154210/record/0-3/${id}/`}
@@ -349,6 +355,7 @@ export default async function DealDetailPage({ params }: PageProps) {
                     )}
                 </>
             )}
+            {/* AI Chat logic is now handled in the summary bar for better accessibility */}
         </div>
     );
 }

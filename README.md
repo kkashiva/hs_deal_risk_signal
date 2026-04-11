@@ -37,7 +37,7 @@ The analysis uses a **signal hierarchy**: Gong transcripts and email patterns ar
 Built as a serverless-native **Next.js (App Router)** application, designed for easy deployment on **Vercel**.
 
 * **Framework:** Next.js 16 (TypeScript, React Server Components)
-* **Orchestration:** **LangGraph** (`@langchain/langgraph`) for multi-node StateGraph pipelines.
+* **Orchestration:** **LangGraph** (`@langchain/langgraph`) for multi-node StateGraph pipelines and conversational chat agents with `PostgresSaver` checkpointing.
 * **CRON:** Vercel Cron (Runs daily at 1 AM UTC)
 * **Database:** Vanilla PostgreSQL (`pg` library) for historical `risk_evaluations` and node outputs.
 * **APIs & Integrations:**
@@ -87,7 +87,18 @@ A dedicated page showing the last evaluation for deals that were marked as close
 ### 5. Scan History (`/scan-history`)
 An audit log of all cron and manual risk scan executions. Shows status, duration, deals processed, high-risk count, and errors for each run. Includes a hidden developer panel (activated by 5 rapid title clicks) for triggering manual scans.
 
-### 6. Daily Scheduled Risk Scan (`/api/cron/risk-scan`)
+### 6. Deal AI Chat (`/deals/[id]`)
+An in-app conversational AI chat on every deal detail page. Sales managers can ask follow-up questions about any deal — strategy, risk mitigation, next steps, or specific details from emails and call transcripts — without leaving the app.
+
+* **Slide-out panel** from the right edge, triggered by a floating "Ask AI" button.
+* **Pre-loaded context**: The LLM receives the full risk evaluation, deal metadata, engagement metrics, and all three intermediate AI analyses (deal, email, transcript) as system prompt context.
+* **On-demand tools**: When the user asks detailed questions (e.g., "What exactly did they say about pricing?"), the LLM can call tools to fetch raw emails from HubSpot or Gong call transcripts in real-time.
+* **Conversation persistence**: Powered by LangGraph `createReactAgent` with `PostgresSaver` — conversations persist across page reloads via thread-based checkpointing.
+* **Starter prompt chips**: Contextual suggested questions based on the deal's primary risk reason (e.g., "What pricing strategy can mitigate this risk?" for budget-risk deals).
+* **Citation markers**: AI responses cite sources with `[Email, date]` and `[Gong call, date]` markers for transparency.
+* **Model**: Claude Sonnet 4.6 via a separate API key (`ANTHROPIC_CHAT_API_KEY`).
+
+### 7. Daily Scheduled Risk Scan (`/api/cron/risk-scan`)
 A Vercel cron job that:
 * **Fetches & Enriches:** Pulls deals across pipelines, adding full activity/transcript context.
 * **Evaluates:** Runs the LangGraph pipeline to generate a structured JSON risk assessment.
@@ -122,7 +133,8 @@ HUBSPOT_PIPELINE_IDS=9308023,9297003,89892425
 GONG_ACCESS_KEY=your_key
 GONG_ACCESS_SECRET=your_secret
 GEMINI_API_KEY=your_gemini_key
-ANTHROPIC_API_KEY=your_claude_key       # Optional
+ANTHROPIC_API_KEY=your_claude_key       # Optional (high-value deal routing)
+ANTHROPIC_CHAT_API_KEY=your_chat_key   # Optional (deal chat, falls back to ANTHROPIC_API_KEY)
 DATABASE_URL=postgresql://user:pass@host/db
 SLACK_WEBHOOK_URL=https://hooks.slack.com/...
 CRON_SECRET=your_secure_random_string

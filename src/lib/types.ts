@@ -288,6 +288,9 @@ export interface AppConfig {
   slack: {
     webhookUrl: string;
   };
+  anthropicChat: {
+    apiKey: string;
+  };
   cronSecret: string;
   mrrRoutingThreshold: number;
   highRiskDealValueThreshold: number;
