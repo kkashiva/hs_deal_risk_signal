@@ -108,6 +108,11 @@ export default async function DealDetailPage({ params }: PageProps) {
                                     </div>
                                 </div>
                                 <div className="summary-actions">
+                                    <ChatPanel
+                                        dealId={id}
+                                        riskReason={latest.risk_reason}
+                                        riskLevel={latest.risk_level}
+                                    />
                                     <DealDetailClient dealId={id} />
                                     <a
                                         href={`https://app.hubspot.com/contacts/9154210/record/0-3/${id}/`}
@@ -350,15 +355,7 @@ export default async function DealDetailPage({ params }: PageProps) {
                     )}
                 </>
             )}
-
-            {/* AI Chat Panel — only when evaluation exists */}
-            {latest && (
-                <ChatPanel
-                    dealId={id}
-                    riskReason={latest.risk_reason}
-                    riskLevel={latest.risk_level}
-                />
-            )}
+            {/* AI Chat logic is now handled in the summary bar for better accessibility */}
         </div>
     );
 }
