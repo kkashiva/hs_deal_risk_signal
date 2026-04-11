@@ -153,6 +153,8 @@ export async function POST(
             input = { messages: buildFollowUpMessage(userMessage) };
         }
 
+        console.log(`[Chat] Starting stream for deal ${dealId}, thread ${threadId}, isNew: ${isNewThread}`);
+
         // Stream response via SSE
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -166,13 +168,36 @@ export async function POST(
                         }
                     );
 
+                    let eventCount = 0;
                     for await (const event of eventStream) {
+                        eventCount++;
+                        // Debug: log first few events to see what's coming through
+                        if (eventCount <= 5) {
+                            console.log(`[Chat Stream] Event #${eventCount}: ${event.event} | name: ${event.name} | data keys: ${Object.keys(event.data || {}).join(',')}`);
+                            if (event.data?.chunk) {
+                                console.log(`[Chat Stream] Chunk content type: ${typeof event.data.chunk.content}, value preview:`, JSON.stringify(event.data.chunk.content)?.substring(0, 200));
+                            }
+                        }
                         if (event.event === 'on_chat_model_stream') {
                             const chunk = event.data?.chunk;
-                            if (chunk?.content && typeof chunk.content === 'string') {
-                                controller.enqueue(
-                                    encoder.encode(`data: ${JSON.stringify({ token: chunk.content })}\n\n`)
-                                );
+                            if (chunk?.content) {
+                                // Anthropic returns content as string or array of content blocks
+                                let text = '';
+                                if (typeof chunk.content === 'string') {
+                                    text = chunk.content;
+                                } else if (Array.isArray(chunk.content)) {
+                                    // Extract text from content blocks: [{type: "text", text: "..."}]
+                                    for (const block of chunk.content) {
+                                        if (block.type === 'text' && block.text) {
+                                            text += block.text;
+                                        }
+                                    }
+                                }
+                                if (text) {
+                                    controller.enqueue(
+                                        encoder.encode(`data: ${JSON.stringify({ token: text })}\n\n`)
+                                    );
+                                }
                             }
                         } else if (event.event === 'on_tool_start') {
                             controller.enqueue(
@@ -185,10 +210,11 @@ export async function POST(
                         }
                     }
 
+                    console.log(`[Chat] Stream complete. Total events: ${eventCount}`);
                     controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                     controller.close();
                 } catch (error) {
-                    console.error('Chat stream error:', error);
+                    console.error('[Chat] Stream error:', error);
                     controller.enqueue(
                         encoder.encode(`data: ${JSON.stringify({ error: 'Stream error occurred' })}\n\n`)
                     );
