@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { RiskEvaluation, DealActivityMetrics } from '@/lib/types';
 import { PIPELINE_MAP, getNormalizedStage } from '@/lib/mappings';
 import { DealDetailClient } from './deal-detail-client';
+import { ChatPanel } from './chat-panel';
 import ReactMarkdown from 'react-markdown';
 
 interface PageProps {
@@ -348,6 +349,15 @@ export default async function DealDetailPage({ params }: PageProps) {
                         </>
                     )}
                 </>
+            )}
+
+            {/* AI Chat Panel — only when evaluation exists */}
+            {latest && (
+                <ChatPanel
+                    dealId={id}
+                    riskReason={latest.risk_reason}
+                    riskLevel={latest.risk_level}
+                />
             )}
         </div>
     );
