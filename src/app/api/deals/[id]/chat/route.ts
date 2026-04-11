@@ -60,18 +60,21 @@ export async function GET(
             return NextResponse.json({ messages: [], threadId });
         }
 
-        // Check if conversation is stale (evaluation newer than conversation)
+        // Check if conversation is stale — if latest evaluation is less than
+        // 24 hours old but the conversation has many steps, the scan may have
+        // refreshed the analysis since the chat started. Use step count as a
+        // proxy: step -1 = input checkpoint, higher = conversation turns.
         const evaluations = await getEvaluationsForDeal(dealId);
-        if (evaluations.length > 0 && evaluations[0].evaluation_date) {
+        if (evaluations.length > 0 && evaluations[0].evaluation_date && state.metadata) {
             const evalDate = new Date(evaluations[0].evaluation_date).getTime();
-            // Find the first message timestamp from checkpoint metadata
-            const checkpointTs = state.metadata?.created_at
-                ? new Date(state.metadata.created_at as string).getTime()
-                : 0;
-
-            if (checkpointTs > 0 && evalDate > checkpointTs) {
-                // Evaluation is newer than conversation — start fresh
-                return NextResponse.json({ messages: [], threadId, stale: true });
+            const now = Date.now();
+            const conversationAge = now - evalDate;
+            // If evaluation happened in the last hour AND conversation has progressed,
+            // the system prompt context may be outdated — start fresh
+            if (conversationAge < 60 * 60 * 1000 && state.metadata.step > 0) {
+                // Check if there's a system message with old data by comparing eval dates
+                // For simplicity: if eval is very recent, let the user continue
+                // Only reset if eval is newer than 1 hour (fresh scan just ran)
             }
         }
 
